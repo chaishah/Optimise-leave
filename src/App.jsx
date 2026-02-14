@@ -45,6 +45,8 @@ const WEEKDAYS = [
   { label: 'Sun', value: 0 },
 ]
 
+const DEFAULT_MEMBERS = [{ id: 1, name: 'You', leaveDays: 12 }]
+
 const App = () => {
   const [country, setCountry] = useState('au')
   const [subdivision, setSubdivision] = useState('NSW')
@@ -59,15 +61,26 @@ const App = () => {
   const [copied, setCopied] = useState(false)
   const [blackoutDates, setBlackoutDates] = useState([])
   const [blackoutInput, setBlackoutInput] = useState('')
-  const [members, setMembers] = useState([{ id: 1, name: 'You', leaveDays: 12 }])
+  const [members, setMembers] = useState(DEFAULT_MEMBERS)
   const [topWindows, setTopWindows] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [calendarFilter, setCalendarFilter] = useState('all')
   const [curvePoints, setCurvePoints] = useState([])
   const [curveSuggestions, setCurveSuggestions] = useState([])
   const [plannedLeaveSpend, setPlannedLeaveSpend] = useState(null)
+  const [view, setView] = useState('planner')
+  const [theme, setTheme] = useState('dark')
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'light') {
+      root.classList.add('theme-light')
+    } else {
+      root.classList.remove('theme-light')
+    }
+  }, [theme])
 
   useEffect(() => {
     if (!countryInfo) return
@@ -227,6 +240,22 @@ const App = () => {
     if (parsedFilter) setCalendarFilter(parsedFilter)
     if (!Number.isNaN(parsedOption) && parsedOption >= 0) setSelectedIndex(parsedOption)
     if (!Number.isNaN(parsedSpend) && parsedSpend >= 0) setPlannedLeaveSpend(parsedSpend)
+    const parsedTheme = params.get('theme')
+    if (parsedTheme === 'light' || parsedTheme === 'dark') setTheme(parsedTheme)
+  }, [])
+
+  useEffect(() => {
+    const syncFromPath = () => {
+      const path = window.location.pathname
+      if (path.startsWith('/guide')) {
+        setView('guide')
+      } else {
+        setView('planner')
+      }
+    }
+    syncFromPath()
+    window.addEventListener('popstate', syncFromPath)
+    return () => window.removeEventListener('popstate', syncFromPath)
   }, [])
 
   useEffect(() => {
@@ -249,7 +278,9 @@ const App = () => {
     if (calendarFilter) params.set('filter', calendarFilter)
     if (selectedIndex) params.set('option', String(selectedIndex))
     if (plannedLeaveSpend !== null) params.set('spend', String(plannedLeaveSpend))
-    const newUrl = `${window.location.pathname}?${params.toString()}`
+    if (theme) params.set('theme', theme)
+    const basePath = view === 'guide' ? '/guide' : '/'
+    const newUrl = `${basePath}?${params.toString()}`
     window.history.replaceState(null, '', newUrl)
   }, [
     year,
@@ -263,6 +294,8 @@ const App = () => {
     calendarFilter,
     selectedIndex,
     plannedLeaveSpend,
+    view,
+    theme,
   ])
 
   const handleCopyLink = async () => {
@@ -274,6 +307,31 @@ const App = () => {
     } catch {
       setCopied(false)
     }
+  }
+
+  const handleReset = () => {
+    setCountry('au')
+    setSubdivision('NSW')
+    setYear(2026)
+    setHolidays([])
+    setResult(null)
+    setIsLoading(false)
+    setStatus('Ready when you are.')
+    setStartDate('2026-01-01')
+    setMustInclude('')
+    setWeekendDays([6, 0])
+    setCopied(false)
+    setBlackoutDates([])
+    setBlackoutInput('')
+    setMembers(DEFAULT_MEMBERS)
+    setTopWindows([])
+    setSelectedIndex(0)
+    setCalendarFilter('all')
+    setCurvePoints([])
+    setCurveSuggestions([])
+    setPlannedLeaveSpend(null)
+    setView('planner')
+    window.history.pushState(null, '', '/')
   }
 
   return (
@@ -291,6 +349,40 @@ const App = () => {
               Enter your balance, location, and start date. The planner finds the longest continuous break
               using weekends and public holidays.
             </p>
+            <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-sand/60">
+              {['planner', 'guide'].map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => {
+                    setView(tab)
+                    const basePath = tab === 'guide' ? '/guide' : '/'
+                    window.history.pushState(null, '', basePath + window.location.search)
+                  }}
+                  className={`rounded-full border px-4 py-2 ${
+                    view === tab
+                      ? 'border-acid/60 bg-acid/10 text-sand'
+                      : 'border-white/10 bg-white/5 text-sand/60'
+                  }`}
+                >
+                  {tab === 'planner' ? 'Planner' : 'How it works'}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sand/60"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sand/60"
+              >
+                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </button>
+            </div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-loud">
             <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Status</div>
@@ -301,7 +393,50 @@ const App = () => {
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+        {view === 'guide' ? (
+          <section className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
+            <h2 className="font-display text-2xl text-sand">How to use this planner</h2>
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <div className="space-y-3 text-sm text-sand/70">
+                <h3 className="font-semibold text-sand">1) Set your region</h3>
+                <p>
+                  Choose your country and state/region so the planner can load the correct public holidays.
+                  Holiday data comes from the CSV files in <span className="text-sand">public/data/</span>.
+                </p>
+                <h3 className="font-semibold text-sand">2) Pick your timeframe</h3>
+                <p>
+                  Use “Consider Leave From” to restrict the search to dates on or after that day. Optionally
+                  set “Must Include” to force the plan to include a specific date.
+                </p>
+                <h3 className="font-semibold text-sand">3) Define your work week</h3>
+                <p>
+                  Select which days are weekends for you. The planner treats those as automatic days off.
+                </p>
+              </div>
+              <div className="space-y-3 text-sm text-sand/70">
+                <h3 className="font-semibold text-sand">4) Family planning</h3>
+                <p>
+                  Add family members and their leave balances. The planner uses the minimum balance to find
+                  a shared break that works for everyone.
+                </p>
+                <h3 className="font-semibold text-sand">5) Blackout dates</h3>
+                <p>
+                  Add dates you cannot take off (e.g., deadlines). The optimizer will avoid any window that
+                  touches them.
+                </p>
+                <h3 className="font-semibold text-sand">6) Tradeoff curve</h3>
+                <p>
+                  Use “Planned Leave Spend” to model spending fewer or more days than you have. The curve shows
+                  how total days off grows as you spend more leave.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-sand/60">
+              Tip: Use the “Copy shareable plan link” button to send your exact setup to someone else.
+            </div>
+          </section>
+        ) : (
+          <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
             <h2 className="font-display text-2xl text-sand">Inputs</h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -639,9 +774,11 @@ const App = () => {
               </button>
             </div>
           </div>
-        </section>
+          </section>
+        )}
 
-        <section className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
+        {view === 'planner' && (
+          <section className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-display text-2xl text-sand">Calendar View</h2>
             <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-sand/60">
@@ -673,7 +810,8 @@ const App = () => {
           <div className="mt-8">
             <Calendar year={year} dayMeta={dayMeta} filterMode={calendarFilter} />
           </div>
-        </section>
+          </section>
+        )}
       </div>
     </div>
   )
