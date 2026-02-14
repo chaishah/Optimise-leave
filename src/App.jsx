@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Calendar from './components/Calendar.jsx'
 import { loadHolidays } from './lib/holidayLoader.js'
-import { buildDayMap, findOptimalWindow } from './lib/optimizer.js'
+import { buildDayMap, findOptimalWindow, findTopWindows } from './lib/optimizer.js'
 
 const COUNTRIES = [
   {
@@ -28,7 +28,6 @@ const WEEKDAYS = [
 ]
 
 const App = () => {
-  const [leaveDays, setLeaveDays] = useState(12)
   const [country, setCountry] = useState('au')
   const [subdivision, setSubdivision] = useState('NSW')
   const [year, setYear] = useState(2026)
@@ -40,26 +39,35 @@ const App = () => {
   const [mustInclude, setMustInclude] = useState('')
   const [weekendDays, setWeekendDays] = useState([6, 0])
   const [copied, setCopied] = useState(false)
+  const [blackoutDates, setBlackoutDates] = useState([])
+  const [blackoutInput, setBlackoutInput] = useState('')
+  const [members, setMembers] = useState([{ id: 1, name: 'You', leaveDays: 12 }])
+  const [topWindows, setTopWindows] = useState([])
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [calendarFilter, setCalendarFilter] = useState('all')
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
 
   const dayMeta = useMemo(() => {
-    if (!result || holidays.length === 0) return {}
     const days = buildDayMap(year, holidays, weekendDays)
+    const blackoutSet = new Set(blackoutDates)
+    const leaveSet = new Set(result?.leaveDates || [])
+    const windowSet = new Set(result?.windowDates || [])
     const meta = {}
     days.forEach((day) => {
       meta[day.iso] = {
         isWeekend: day.weekend,
         isHoliday: Boolean(day.holiday),
-        isLeave: result.leaveDates.includes(day.iso),
-        isWindow: result.windowDates.includes(day.iso),
+        isLeave: leaveSet.has(day.iso),
+        isWindow: windowSet.has(day.iso),
+        isBlocked: blackoutSet.has(day.iso),
         label: day.holiday?.name || '',
       }
     })
     return meta
-  }, [year, holidays, result, weekendDays])
+  }, [year, holidays, result, weekendDays, blackoutDates])
 
-  const handleCompute = async () => {
+  const handleCompute = async (preferredIndex = 0) => {
     setIsLoading(true)
     setStatus('Loading holidays...')
     const list = await loadHolidays({ country, year, subdivision })
@@ -72,14 +80,26 @@ const App = () => {
     }
 
     const days = buildDayMap(year, list, weekendDays)
-    const filtered = days.filter((d) => d.iso >= startDate)
+    const blackoutSet = new Set(blackoutDates)
+    const daysWithBlocks = days.map((d) => ({ ...d, isBlocked: blackoutSet.has(d.iso) }))
+    const filteredWithBlocks = daysWithBlocks.filter((d) => d.iso >= startDate)
     const includeDate = mustInclude && mustInclude >= startDate ? mustInclude : ''
-    const opt = findOptimalWindow(filtered, Number(leaveDays), includeDate)
-    setResult(opt)
+    const leaveBudget = Math.min(...members.map((m) => Number(m.leaveDays) || 0))
+    const windows = findTopWindows(filteredWithBlocks, Number(leaveBudget), includeDate, 5)
+    setTopWindows(windows)
+    const nextIndex = windows[preferredIndex] ? preferredIndex : 0
+    const selected = windows[nextIndex] || windows[0] || null
+    setSelectedIndex(nextIndex)
+    setResult(selected || findOptimalWindow(filteredWithBlocks, Number(leaveBudget), includeDate))
     setIsLoading(false)
   }
 
-  const canProceed = Number(leaveDays) > 0 && startDate
+  const canProceed = familyLeaveBudget > 0 && startDate
+
+  const familyLeaveBudget = useMemo(() => {
+    if (!members.length) return 0
+    return Math.min(...members.map((m) => Number(m.leaveDays) || 0))
+  }, [members])
 
   const counts = useMemo(() => {
     if (!result || result.length === 0) {
@@ -106,10 +126,19 @@ const App = () => {
     const parsedStart = params.get('start')
     const parsedInclude = params.get('include')
 
-    if (!Number.isNaN(parsedLeave) && parsedLeave > 0) setLeaveDays(parsedLeave)
+    const parsedOption = Number(params.get('option'))
     if (!Number.isNaN(parsedYear) && YEARS.includes(parsedYear)) setYear(parsedYear)
     if (parsedStart) setStartDate(parsedStart)
     if (parsedInclude) setMustInclude(parsedInclude)
+    const parsedBlackout = params.get('blackout')
+    if (parsedBlackout) {
+      setBlackoutDates(
+        parsedBlackout
+          .split(',')
+          .map((d) => d.trim())
+          .filter(Boolean)
+      )
+    }
     const countryParam = params.get('country')
     const subdivisionParam = params.get('subdivision')
     if (countryParam && COUNTRIES.some((c) => c.code === countryParam)) setCountry(countryParam)
@@ -121,20 +150,48 @@ const App = () => {
         .filter((v) => !Number.isNaN(v))
       if (parsed.length) setWeekendDays(parsed)
     }
+    const parsedMembers = params.get('members')
+    if (parsedMembers) {
+      const list = parsedMembers.split('|').map((entry, idx) => {
+        const [name, days] = entry.split(':')
+        return {
+          id: idx + 1,
+          name: name ? decodeURIComponent(name) : `Member ${idx + 1}`,
+          leaveDays: Number(days) || 0,
+        }
+      })
+      if (list.length) setMembers(list)
+    }
+    if (!parsedMembers && !Number.isNaN(parsedLeave) && parsedLeave > 0) {
+      setMembers([{ id: 1, name: 'You', leaveDays: parsedLeave }])
+    }
+    const parsedFilter = params.get('filter')
+    if (parsedFilter) setCalendarFilter(parsedFilter)
+    if (!Number.isNaN(parsedOption) && parsedOption >= 0) setSelectedIndex(parsedOption)
   }, [])
 
   useEffect(() => {
     const params = new URLSearchParams()
-    params.set('leave', String(leaveDays))
     params.set('year', String(year))
     params.set('country', country)
     if (subdivision) params.set('subdivision', subdivision)
     if (startDate) params.set('start', startDate)
     if (mustInclude) params.set('include', mustInclude)
     if (weekendDays.length) params.set('weekend', weekendDays.join(','))
+    if (blackoutDates.length) params.set('blackout', blackoutDates.join(','))
+    if (members.length) {
+      params.set(
+        'members',
+        members
+          .map((m) => `${encodeURIComponent(m.name)}:${m.leaveDays}`)
+          .join('|')
+      )
+    }
+    if (calendarFilter) params.set('filter', calendarFilter)
+    if (selectedIndex) params.set('option', String(selectedIndex))
     const newUrl = `${window.location.pathname}?${params.toString()}`
     window.history.replaceState(null, '', newUrl)
-  }, [leaveDays, year, country, subdivision, startDate, mustInclude, weekendDays])
+  }, [year, country, subdivision, startDate, mustInclude, weekendDays, blackoutDates, members, calendarFilter, selectedIndex])
 
   const handleCopyLink = async () => {
     const url = window.location.href
@@ -176,16 +233,6 @@ const App = () => {
           <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
             <h2 className="font-display text-2xl text-sand">Inputs</h2>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Leave Days</span>
-                <input
-                  type="number"
-                  min="1"
-                  value={leaveDays}
-                  onChange={(e) => setLeaveDays(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-3 text-lg text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                />
-              </label>
               <label className="space-y-2">
                 <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Year</span>
                 <select
@@ -277,10 +324,107 @@ const App = () => {
               </div>
             </div>
 
+            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Family Members</div>
+              <div className="mt-4 space-y-3">
+                {members.map((member) => (
+                  <div key={member.id} className="flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      value={member.name}
+                      onChange={(e) =>
+                        setMembers((prev) =>
+                          prev.map((m) => (m.id === member.id ? { ...m, name: e.target.value } : m))
+                        )
+                      }
+                      className="flex-1 min-w-[160px] rounded-2xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
+                      placeholder="Name"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={member.leaveDays}
+                      onChange={(e) =>
+                        setMembers((prev) =>
+                          prev.map((m) =>
+                            m.id === member.id ? { ...m, leaveDays: e.target.value } : m
+                          )
+                        )
+                      }
+                      className="w-28 rounded-2xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
+                      placeholder="Leave"
+                    />
+                    {members.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setMembers((prev) => prev.filter((m) => m.id !== member.id))}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.3em] text-sand/60"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-sand/50">
+                <span>Family leave budget: {familyLeaveBudget} days (minimum across members).</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMembers((prev) => [
+                      ...prev,
+                      { id: Date.now(), name: `Member ${prev.length + 1}`, leaveDays: 10 },
+                    ])
+                  }
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-sand/70"
+                >
+                  Add member
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Blackout Dates</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {blackoutDates.length === 0 && (
+                  <span className="text-xs text-sand/50">No blackout dates.</span>
+                )}
+                {blackoutDates.map((date) => (
+                  <button
+                    type="button"
+                    key={date}
+                    onClick={() => setBlackoutDates((prev) => prev.filter((d) => d !== date))}
+                    className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-sand/70"
+                  >
+                    {date} ✕
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <input
+                  type="date"
+                  value={blackoutInput}
+                  onChange={(e) => setBlackoutInput(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!blackoutInput) return
+                    setBlackoutDates((prev) => [...new Set([...prev, blackoutInput])])
+                    setBlackoutInput('')
+                  }}
+                  className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-sand/70"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
             <button
               type="button"
               disabled={!canProceed || isLoading}
-              onClick={handleCompute}
+              onClick={() => handleCompute(selectedIndex)}
               className="mt-6 w-full rounded-full bg-acid px-6 py-4 text-sm font-semibold uppercase tracking-[0.3em] text-ink shadow-loud disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-sand/40"
             >
               {isLoading ? 'Calculating...' : 'Find Best Window'}
@@ -294,8 +438,8 @@ const App = () => {
                 <div className="mt-4 space-y-3 text-sm text-sand/80">
                   <div className="text-2xl font-semibold text-acid">{result.length} total days off</div>
                   <div>
-                    Leave used: <span className="font-semibold text-sand">{result.leaveUsed}</span> /{' '}
-                    {leaveDays}
+                    Leave used (per person): <span className="font-semibold text-sand">{result.leaveUsed}</span> /{' '}
+                    {familyLeaveBudget}
                   </div>
                   {result.length > 0 ? (
                     <div>
@@ -320,12 +464,45 @@ const App = () => {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
+              <h3 className="font-display text-xl text-sand">Top Options</h3>
+              {topWindows.length ? (
+                <div className="mt-4 space-y-3 text-sm text-sand/70">
+                  {topWindows.map((win, idx) => (
+                    <button
+                      type="button"
+                      key={`${win.start}-${win.end}`}
+                      onClick={() => {
+                        setSelectedIndex(idx)
+                        setResult(win)
+                      }}
+                      className={`w-full rounded-2xl border px-4 py-3 text-left ${
+                        idx === selectedIndex
+                          ? 'border-acid/60 bg-acid/10 text-sand'
+                          : 'border-white/10 bg-white/5 text-sand/70'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold">
+                        Option {idx + 1}: {win.length} days off
+                      </div>
+                      <div className="text-xs text-sand/60">
+                        {win.windowDates[0]} → {win.windowDates.at(-1)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-sand/60">No options computed yet.</p>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
               <h3 className="font-display text-xl text-sand">Holiday Data Status</h3>
               <ul className="mt-4 space-y-2 text-sm text-sand/70">
                 <li>Country: {countryInfo.name}</li>
                 <li>State: {countryInfo.subdivisions.length ? subdivision : 'National'}</li>
                 <li>File: /public/data/holidays-{country}-{year}.csv</li>
                 <li>Loaded: {holidays.length} rows</li>
+                <li>Family members: {members.length}</li>
               </ul>
               <button
                 type="button"
@@ -345,10 +522,30 @@ const App = () => {
               <span className="rounded-full border border-sky/50 bg-sky/10 px-3 py-1 text-sky">Holiday</span>
               <span className="rounded-full border border-acid/60 bg-acid/20 px-3 py-1 text-ink">Leave</span>
               <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1">Weekend</span>
+              <span className="rounded-full border border-blood/50 bg-blood/10 px-3 py-1 text-blood">
+                Blackout
+              </span>
             </div>
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-sand/50">
+            <span>Filter</span>
+            {['all', 'window', 'off'].map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setCalendarFilter(mode)}
+                className={`rounded-full border px-3 py-1 ${
+                  calendarFilter === mode
+                    ? 'border-acid/60 bg-acid/10 text-sand'
+                    : 'border-white/10 bg-white/5 text-sand/60'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
           <div className="mt-8">
-            <Calendar year={year} dayMeta={dayMeta} />
+            <Calendar year={year} dayMeta={dayMeta} filterMode={calendarFilter} />
           </div>
         </section>
       </div>

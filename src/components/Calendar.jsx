@@ -2,7 +2,7 @@ import { dayLabel, getMonthMatrix, monthLabel, toISODateUTC } from '../lib/dateU
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-const DayCell = ({ date, meta }) => {
+const DayCell = ({ date, meta, filterMode }) => {
   if (!date) return <div className="h-12 rounded-lg bg-black/20" />
 
   const iso = toISODateUTC(date)
@@ -10,9 +10,14 @@ const DayCell = ({ date, meta }) => {
 
   const base = 'h-12 rounded-lg border border-white/10 flex flex-col items-center justify-center text-xs'
   const classes = [base]
+  if (filterMode === 'window' && !info.isWindow) classes.push('opacity-30')
+  if (filterMode === 'off' && !info.isWeekend && !info.isHoliday && !info.isLeave && !info.isBlocked) {
+    return <div className="h-12 rounded-lg bg-black/20" />
+  }
   if (info.isWeekend) classes.push('bg-white/5 text-sand/70')
   if (info.isHoliday) classes.push('bg-sky/20 border-sky/50 text-sky')
   if (info.isLeave) classes.push('bg-acid/30 border-acid text-ink font-semibold')
+  if (info.isBlocked) classes.push('bg-blood/20 border-blood/60 text-blood')
   if (info.isWindow) classes.push('shadow-ring')
 
   const tooltip = [
@@ -20,6 +25,7 @@ const DayCell = ({ date, meta }) => {
     info.isLeave ? 'Leave' : null,
     info.isHoliday ? 'Holiday' : null,
     info.isWeekend ? 'Weekend' : null,
+    info.isBlocked ? 'Blackout' : null,
   ]
     .filter(Boolean)
     .join(' • ')
@@ -32,7 +38,7 @@ const DayCell = ({ date, meta }) => {
   )
 }
 
-const Calendar = ({ year, dayMeta }) => {
+const Calendar = ({ year, dayMeta, filterMode = 'all' }) => {
   const handleJump = (e) => {
     const target = document.getElementById(`month-${e.target.value}`)
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -67,7 +73,7 @@ const Calendar = ({ year, dayMeta }) => {
               </div>
             ))}
             {getMonthMatrix(year, idx).map((date, cellIdx) => (
-              <DayCell key={`${idx}-${cellIdx}`} date={date} meta={dayMeta} />
+              <DayCell key={`${idx}-${cellIdx}`} date={date} meta={dayMeta} filterMode={filterMode} />
             ))}
           </div>
         </section>
