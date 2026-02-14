@@ -18,5 +18,6 @@ Example row:
 
 Notes:
 - Use uppercase state codes for Australia.
+- UK subdivisions: EAW (England & Wales), SCT (Scotland), NIR (Northern Ireland).
 - For India, leave subdivision blank for national holidays or use a state code you define.
 - Add only official public holidays you want the planner to treat as days off.

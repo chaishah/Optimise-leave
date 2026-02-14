@@ -1,0 +1,28 @@
+date,country,subdivision,name,type
+2027-01-01,uk,EAW,New Year’s Day,public
+2027-03-26,uk,EAW,Good Friday,public
+2027-03-29,uk,EAW,Easter Monday,public
+2027-05-03,uk,EAW,Early May bank holiday,public
+2027-05-31,uk,EAW,Spring bank holiday,public
+2027-08-30,uk,EAW,Summer bank holiday,public
+2027-12-27,uk,EAW,Christmas Day (substitute day),public
+2027-12-28,uk,EAW,Boxing Day (substitute day),public
+2027-01-01,uk,SCT,New Year’s Day,public
+2027-01-04,uk,SCT,2nd January (substitute day),public
+2027-03-26,uk,SCT,Good Friday,public
+2027-05-03,uk,SCT,Early May bank holiday,public
+2027-05-31,uk,SCT,Spring bank holiday,public
+2027-08-02,uk,SCT,Summer bank holiday,public
+2027-11-30,uk,SCT,St Andrew’s Day,public
+2027-12-27,uk,SCT,Christmas Day (substitute day),public
+2027-12-28,uk,SCT,Boxing Day (substitute day),public
+2027-01-01,uk,NIR,New Year’s Day,public
+2027-03-17,uk,NIR,St Patrick’s Day,public
+2027-03-26,uk,NIR,Good Friday,public
+2027-03-29,uk,NIR,Easter Monday,public
+2027-05-03,uk,NIR,Early May bank holiday,public
+2027-05-31,uk,NIR,Spring bank holiday,public
+2027-07-12,uk,NIR,Battle of the Boyne,public
+2027-08-30,uk,NIR,Summer bank holiday,public
+2027-12-27,uk,NIR,Christmas Day (substitute day),public
+2027-12-28,uk,NIR,Boxing Day (substitute day),public

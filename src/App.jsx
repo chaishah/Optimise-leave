@@ -7,7 +7,25 @@ const COUNTRIES = [
   {
     code: 'au',
     name: 'Australia',
-    subdivisions: ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'],
+    subdivisions: [
+      { code: 'ACT', name: 'ACT' },
+      { code: 'NSW', name: 'NSW' },
+      { code: 'NT', name: 'NT' },
+      { code: 'QLD', name: 'QLD' },
+      { code: 'SA', name: 'SA' },
+      { code: 'TAS', name: 'TAS' },
+      { code: 'VIC', name: 'VIC' },
+      { code: 'WA', name: 'WA' },
+    ],
+  },
+  {
+    code: 'uk',
+    name: 'United Kingdom',
+    subdivisions: [
+      { code: 'EAW', name: 'England & Wales' },
+      { code: 'SCT', name: 'Scotland' },
+      { code: 'NIR', name: 'Northern Ireland' },
+    ],
   },
   {
     code: 'in',
@@ -47,6 +65,18 @@ const App = () => {
   const [calendarFilter, setCalendarFilter] = useState('all')
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
+
+  useEffect(() => {
+    if (!countryInfo) return
+    const codes = countryInfo.subdivisions.map((s) => s.code)
+    if (!codes.length) {
+      setSubdivision('')
+      return
+    }
+    if (!codes.includes(subdivision)) {
+      setSubdivision(codes[0])
+    }
+  }, [country, countryInfo, subdivision])
 
   const dayMeta = useMemo(() => {
     const days = buildDayMap(year, holidays, weekendDays)
@@ -290,8 +320,8 @@ const App = () => {
                 >
                   {countryInfo.subdivisions.length === 0 && <option>National</option>}
                   {countryInfo.subdivisions.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
+                    <option key={s.code} value={s.code}>
+                      {s.name}
                     </option>
                   ))}
                 </select>
