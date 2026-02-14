@@ -42,9 +42,9 @@ const DayCell = ({ date, meta, filterMode }) => {
   )
 }
 
-const Calendar = ({ year, dayMeta, filterMode = 'all' }) => {
+const Calendar = ({ year, dayMeta, filterMode = 'all', idPrefix = 'main' }) => {
   const handleJump = (e) => {
-    const target = document.getElementById(`month-${e.target.value}`)
+    const target = document.getElementById(`${idPrefix}-month-${e.target.value}`)
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -65,7 +65,7 @@ const Calendar = ({ year, dayMeta, filterMode = 'all' }) => {
         </select>
       </div>
       {Array.from({ length: 12 }).map((_, idx) => (
-        <section key={idx} id={`month-${idx}`} className="space-y-3 scroll-mt-24">
+        <section key={idx} id={`${idPrefix}-month-${idx}`} className="space-y-3 scroll-mt-24">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-xl text-sand">{monthLabel(year, idx)}</h3>
             <div className="text-xs uppercase tracking-widest text-sand/50">{year}</div>

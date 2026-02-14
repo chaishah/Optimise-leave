@@ -71,6 +71,7 @@ const App = () => {
   const [plannedLeaveSpend, setPlannedLeaveSpend] = useState(null)
   const [view, setView] = useState('planner')
   const [theme, setTheme] = useState('dark')
+  const [calendarViewMode, setCalendarViewMode] = useState('combined')
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
 
@@ -188,6 +189,8 @@ const App = () => {
     return { weekends, holidays: holidaysCount, leave }
   }, [dayMeta, result])
 
+  const canExport = Boolean(result && result.length > 0)
+
   const perMemberPlan = useMemo(() => {
     const used = result?.leaveUsed ?? 0
     return members.map((m) => {
@@ -206,6 +209,24 @@ const App = () => {
     if (!curvePoints.length) return { maxLeave: 0, maxDays: 0 }
     const last = curvePoints[curvePoints.length - 1]
     return { maxLeave: last.leave, maxDays: last.daysOff }
+  }, [curvePoints])
+
+  const tradeoffInsights = useMemo(() => {
+    if (curvePoints.length < 2) return { bestJumps: [], diminishing: null }
+    const jumps = []
+    for (let i = 1; i < curvePoints.length; i += 1) {
+      const prev = curvePoints[i - 1]
+      const curr = curvePoints[i]
+      jumps.push({
+        from: prev.leave,
+        to: curr.leave,
+        gain: curr.daysOff - prev.daysOff,
+      })
+    }
+    const bestJumps = [...jumps].sort((a, b) => b.gain - a.gain).slice(0, 3)
+    const diminishing =
+      jumps.find((j) => j.gain < 2) || jumps[jumps.length - 1] || null
+    return { bestJumps, diminishing }
   }, [curvePoints])
 
   useEffect(() => {
@@ -262,6 +283,10 @@ const App = () => {
     if (!Number.isNaN(parsedSpend) && parsedSpend >= 0) setPlannedLeaveSpend(parsedSpend)
     const parsedTheme = params.get('theme')
     if (parsedTheme === 'light' || parsedTheme === 'dark') setTheme(parsedTheme)
+    const parsedCalView = params.get('calview')
+    if (parsedCalView === 'combined' || parsedCalView === 'per-member') {
+      setCalendarViewMode(parsedCalView)
+    }
   }, [])
 
   useEffect(() => {
@@ -299,6 +324,7 @@ const App = () => {
     if (selectedIndex) params.set('option', String(selectedIndex))
     if (plannedLeaveSpend !== null) params.set('spend', String(plannedLeaveSpend))
     if (theme) params.set('theme', theme)
+    if (calendarViewMode) params.set('calview', calendarViewMode)
     const basePath = view === 'guide' ? '/guide' : '/'
     const newUrl = `${basePath}?${params.toString()}`
     window.history.replaceState(null, '', newUrl)
@@ -316,6 +342,7 @@ const App = () => {
     plannedLeaveSpend,
     view,
     theme,
+    calendarViewMode,
   ])
 
   const handleCopyLink = async () => {
@@ -351,12 +378,71 @@ const App = () => {
     setCurveSuggestions([])
     setPlannedLeaveSpend(null)
     setView('planner')
+    setCalendarViewMode('combined')
     window.history.pushState(null, '', '/')
+  }
+
+  const handleExportIcs = () => {
+    if (!result || result.length === 0) return
+    const toIcsDate = (iso) => iso.replace(/-/g, '')
+    const addDays = (iso, days) => {
+      const date = new Date(`${iso}T00:00:00Z`)
+      date.setUTCDate(date.getUTCDate() + days)
+      return date.toISOString().slice(0, 10)
+    }
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d+Z$/, 'Z')
+
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Optimise Leave//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+    ]
+
+    lines.push('BEGIN:VEVENT')
+    lines.push(`UID:window-${result.windowDates[0]}@optimise-leave`)
+    lines.push(`DTSTAMP:${stamp}`)
+    lines.push(`DTSTART;VALUE=DATE:${toIcsDate(result.windowDates[0])}`)
+    lines.push(`DTEND;VALUE=DATE:${toIcsDate(addDays(result.windowDates.at(-1), 1))}`)
+    lines.push('SUMMARY:Leave window')
+    lines.push('DESCRIPTION:Optimised leave window.')
+    lines.push('END:VEVENT')
+
+    result.leaveDates.forEach((date, idx) => {
+      lines.push('BEGIN:VEVENT')
+      lines.push(`UID:leave-${date}-${idx}@optimise-leave`)
+      lines.push(`DTSTAMP:${stamp}`)
+      lines.push(`DTSTART;VALUE=DATE:${toIcsDate(date)}`)
+      lines.push(`DTEND;VALUE=DATE:${toIcsDate(addDays(date, 1))}`)
+      lines.push('SUMMARY:Leave')
+      lines.push('DESCRIPTION:Planned leave day.')
+      lines.push('END:VEVENT')
+    })
+
+    lines.push('END:VCALENDAR')
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `leave-plan-${year}.ics`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const handlePrint = () => {
+    if (!result || result.length === 0) return
+    window.print()
   }
 
   return (
     <div className="min-h-screen px-4 py-10 text-sand">
-      <div className="mx-auto max-w-6xl space-y-10">
+      <div className="mx-auto max-w-6xl space-y-10 no-print">
         <header className="grid gap-4 md:grid-cols-[1.2fr_1fr] md:items-end">
           <div className="space-y-4">
             <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.35em] text-sand/60">
@@ -719,6 +805,24 @@ const App = () => {
                       ))}
                     </div>
                   </div>
+                  <div className="flex flex-wrap gap-2 pt-2 text-xs uppercase tracking-[0.3em] text-sand/60">
+                    <button
+                      type="button"
+                      disabled={!canExport}
+                      onClick={handleExportIcs}
+                      className="rounded-full border border-white/10 bg-white/5 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Download .ics
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canExport}
+                      onClick={handlePrint}
+                      className="rounded-full border border-white/10 bg-white/5 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Print summary
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-sand/60">Enter your inputs to see the optimal break.</p>
@@ -737,6 +841,26 @@ const App = () => {
                   <div className="text-sm text-sand/60">Run the planner to see the curve.</div>
                 )}
               </div>
+              {tradeoffInsights.bestJumps.length ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-xs text-sand/70">
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-sand/50">
+                    Best marginal gains
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {tradeoffInsights.bestJumps.map((j) => (
+                      <span key={`${j.from}-${j.to}`}>
+                        {j.from}→{j.to} leave: +{j.gain} days off
+                      </span>
+                    ))}
+                  </div>
+                  {tradeoffInsights.diminishing ? (
+                    <div className="mt-2 text-sand/50">
+                      Diminishing returns around {tradeoffInsights.diminishing.to} leave (
+                      +{tradeoffInsights.diminishing.gain} day).
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               {curveSuggestions.length ? (
                 <div className="mt-4 flex flex-wrap gap-2 text-xs text-sand/60">
                   <span className="uppercase tracking-[0.3em] text-sand/40">Suggestions</span>
@@ -878,11 +1002,87 @@ const App = () => {
               </button>
             ))}
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-sand/50">
+            <span>View</span>
+            {['combined', 'per-member'].map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setCalendarViewMode(mode)}
+                className={`rounded-full border px-3 py-1 ${
+                  calendarViewMode === mode
+                    ? 'border-acid/60 bg-acid/10 text-sand'
+                    : 'border-white/10 bg-white/5 text-sand/60'
+                }`}
+              >
+                {mode === 'combined' ? 'Combined' : 'Per member'}
+              </button>
+            ))}
+          </div>
           <div className="mt-8">
-            <Calendar year={year} dayMeta={dayMeta} filterMode={calendarFilter} />
+            {calendarViewMode === 'combined' ? (
+              <Calendar year={year} dayMeta={dayMeta} filterMode={calendarFilter} idPrefix="main" />
+            ) : (
+              <div className="space-y-6">
+                {members.map((member) => {
+                  const balance = Number(member.leaveDays) || 0
+                  const used = result?.leaveUsed ?? 0
+                  const remaining = balance - used
+                  return (
+                    <details
+                      key={member.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                    >
+                      <summary className="cursor-pointer list-none text-sm text-sand/80">
+                        {member.name} • {used} used •{' '}
+                        <span className={remaining < 0 ? 'text-blood' : 'text-sand'}>
+                          {remaining} left
+                        </span>
+                      </summary>
+                      <div className="mt-4">
+                        <Calendar
+                          year={year}
+                          dayMeta={dayMeta}
+                          filterMode={calendarFilter}
+                          idPrefix={`member-${member.id}`}
+                        />
+                      </div>
+                    </details>
+                  )
+                })}
+              </div>
+            )}
           </div>
           </section>
         )}
+      </div>
+      <div id="print-root" className="print-root">
+        <div className="print-card">
+          <h1>Leave Plan Summary</h1>
+          <p>
+            {countryInfo.name}
+            {countryInfo.subdivisions.length ? ` • ${subdivision}` : ''} • {year}
+          </p>
+          {result ? (
+            <>
+              <p>
+                Window: {result.windowDates[0]} → {result.windowDates.at(-1)} ({result.length} days off)
+              </p>
+              <p>Leave used per person: {result.leaveUsed}</p>
+              <p>Leave dates: {result.leaveDates.join(', ') || 'None'}</p>
+              <h2>Per-member balances</h2>
+              <ul>
+                {perMemberPlan.map((m) => (
+                  <li key={m.id}>
+                    {m.name}: {m.used} used • {m.remaining} left
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>No plan computed.</p>
+          )}
+        </div>
       </div>
     </div>
   )
