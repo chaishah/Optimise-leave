@@ -67,6 +67,7 @@ const App = () => {
   const [calendarFilter, setCalendarFilter] = useState('all')
   const [curvePoints, setCurvePoints] = useState([])
   const [curveSuggestions, setCurveSuggestions] = useState([])
+  const [suggestionWindows, setSuggestionWindows] = useState({})
   const [plannedLeaveSpend, setPlannedLeaveSpend] = useState(null)
   const [view, setView] = useState('planner')
   const [theme, setTheme] = useState('dark')
@@ -148,6 +149,11 @@ const App = () => {
     setCurvePoints(curve)
     const suggestions = getCurveSuggestions(curve)
     setCurveSuggestions(suggestions)
+    const suggestionMap = {}
+    suggestions.forEach((s) => {
+      suggestionMap[s.leave] = findTopWindows(filteredWithBlocks, s.leave, includeDate, 3)
+    })
+    setSuggestionWindows(suggestionMap)
     setIsLoading(false)
   }
 
@@ -181,6 +187,20 @@ const App = () => {
     })
     return { weekends, holidays: holidaysCount, leave }
   }, [dayMeta, result])
+
+  const perMemberPlan = useMemo(() => {
+    const used = result?.leaveUsed ?? 0
+    return members.map((m) => {
+      const balance = Number(m.leaveDays) || 0
+      return {
+        id: m.id,
+        name: m.name,
+        balance,
+        used,
+        remaining: balance - used,
+      }
+    })
+  }, [members, result])
 
   const curveSummary = useMemo(() => {
     if (!curvePoints.length) return { maxLeave: 0, maxDays: 0 }
@@ -686,6 +706,19 @@ const App = () => {
                     <span>Holidays: {counts.holidays}</span>
                     <span>Leave: {counts.leave}</span>
                   </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-xs">
+                    <div className="text-[10px] uppercase tracking-[0.3em] text-sand/50">Per‑member plan</div>
+                    <div className="mt-2 space-y-2">
+                      {perMemberPlan.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between">
+                          <span className="text-sand/70">{m.name}</span>
+                          <span className={m.remaining < 0 ? 'text-blood' : 'text-sand'}>
+                            {m.used} used • {m.remaining} left
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <p className="mt-4 text-sm text-sand/60">Enter your inputs to see the optimal break.</p>
@@ -755,6 +788,44 @@ const App = () => {
                 <p className="mt-4 text-sm text-sand/60">No options computed yet.</p>
               )}
             </div>
+
+            <details className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
+              <summary className="cursor-pointer list-none font-display text-xl text-sand">
+                Multiple Best Windows
+                <span className="ml-2 text-xs uppercase tracking-[0.3em] text-sand/50">
+                  (expand)
+                </span>
+              </summary>
+              {curveSuggestions.length ? (
+                <div className="mt-4 space-y-4 text-sm text-sand/70">
+                  {curveSuggestions.map((s) => (
+                    <div key={s.leave} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <div className="text-xs uppercase tracking-[0.3em] text-sand/50">
+                        {s.leave} leave → {s.daysOff} off
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {(suggestionWindows[s.leave] || []).map((win, idx) => (
+                          <button
+                            key={`${s.leave}-${win.start}-${idx}`}
+                            type="button"
+                            onClick={() => {
+                              setPlannedLeaveSpend(s.leave)
+                              setSelectedIndex(0)
+                              setResult(win)
+                            }}
+                            className="w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-left text-xs text-sand/70"
+                          >
+                            Option {idx + 1}: {win.windowDates[0]} → {win.windowDates.at(-1)} ({win.length} days)
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-sand/60">Run the planner to see grouped options.</p>
+              )}
+            </details>
 
             <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
               <h3 className="font-display text-xl text-sand">Holiday Data Status</h3>

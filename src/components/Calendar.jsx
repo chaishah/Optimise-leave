@@ -33,7 +33,11 @@ const DayCell = ({ date, meta, filterMode }) => {
   return (
     <div className={classes.join(' ')} title={tooltip}>
       <span className="text-sm">{date.getUTCDate()}</span>
-      {info.label && <span className="text-[10px] text-sand/70">{info.label}</span>}
+      {info.label && (
+        <span className="hidden md:block text-[10px] text-sand/70 truncate max-w-[56px]">
+          {info.label}
+        </span>
+      )}
     </div>
   )
 }
