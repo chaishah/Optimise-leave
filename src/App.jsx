@@ -63,6 +63,9 @@ const App = () => {
   const [topWindows, setTopWindows] = useState([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [calendarFilter, setCalendarFilter] = useState('all')
+  const [curvePoints, setCurvePoints] = useState([])
+  const [curveSuggestions, setCurveSuggestions] = useState([])
+  const [plannedLeaveSpend, setPlannedLeaveSpend] = useState(null)
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
 
@@ -97,7 +100,7 @@ const App = () => {
     return meta
   }, [year, holidays, result, weekendDays, blackoutDates])
 
-  const handleCompute = async (preferredIndex = 0) => {
+  const handleCompute = async (preferredIndex = 0, spendOverride) => {
     setIsLoading(true)
     setStatus('Loading holidays...')
     const list = await loadHolidays({ country, year, subdivision })
@@ -114,13 +117,24 @@ const App = () => {
     const daysWithBlocks = days.map((d) => ({ ...d, isBlocked: blackoutSet.has(d.iso) }))
     const filteredWithBlocks = daysWithBlocks.filter((d) => d.iso >= startDate)
     const includeDate = mustInclude && mustInclude >= startDate ? mustInclude : ''
-    const leaveBudget = Math.min(...members.map((m) => Number(m.leaveDays) || 0))
+    const maxBudget = Math.min(...members.map((m) => Number(m.leaveDays) || 0))
+    const spend = typeof spendOverride === 'number' ? spendOverride : plannedLeaveSpend
+    const leaveBudget = Math.max(0, Number.isFinite(spend) ? spend : maxBudget)
     const windows = findTopWindows(filteredWithBlocks, Number(leaveBudget), includeDate, 5)
     setTopWindows(windows)
     const nextIndex = windows[preferredIndex] ? preferredIndex : 0
     const selected = windows[nextIndex] || windows[0] || null
     setSelectedIndex(nextIndex)
     setResult(selected || findOptimalWindow(filteredWithBlocks, Number(leaveBudget), includeDate))
+    const curve = []
+    const maxCurve = Math.max(maxBudget, leaveBudget, 1)
+    for (let i = 0; i <= maxCurve; i += 1) {
+      const best = findTopWindows(filteredWithBlocks, i, includeDate, 1)[0]
+      curve.push({ leave: i, daysOff: best ? best.length : 0 })
+    }
+    setCurvePoints(curve)
+    const suggestions = getCurveSuggestions(curve)
+    setCurveSuggestions(suggestions)
     setIsLoading(false)
   }
 
@@ -128,6 +142,13 @@ const App = () => {
     if (!members.length) return 0
     return Math.min(...members.map((m) => Number(m.leaveDays) || 0))
   }, [members])
+
+  useEffect(() => {
+    setPlannedLeaveSpend((prev) => {
+      if (prev === null) return familyLeaveBudget
+      return prev
+    })
+  }, [familyLeaveBudget])
 
   const canProceed = familyLeaveBudget > 0 && startDate
 
@@ -148,6 +169,12 @@ const App = () => {
     return { weekends, holidays: holidaysCount, leave }
   }, [dayMeta, result])
 
+  const curveSummary = useMemo(() => {
+    if (!curvePoints.length) return { maxLeave: 0, maxDays: 0 }
+    const last = curvePoints[curvePoints.length - 1]
+    return { maxLeave: last.leave, maxDays: last.daysOff }
+  }, [curvePoints])
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const parsedLeave = Number(params.get('leave'))
@@ -157,6 +184,7 @@ const App = () => {
     const parsedInclude = params.get('include')
 
     const parsedOption = Number(params.get('option'))
+    const parsedSpend = Number(params.get('spend'))
     if (!Number.isNaN(parsedYear) && YEARS.includes(parsedYear)) setYear(parsedYear)
     if (parsedStart) setStartDate(parsedStart)
     if (parsedInclude) setMustInclude(parsedInclude)
@@ -198,6 +226,7 @@ const App = () => {
     const parsedFilter = params.get('filter')
     if (parsedFilter) setCalendarFilter(parsedFilter)
     if (!Number.isNaN(parsedOption) && parsedOption >= 0) setSelectedIndex(parsedOption)
+    if (!Number.isNaN(parsedSpend) && parsedSpend >= 0) setPlannedLeaveSpend(parsedSpend)
   }, [])
 
   useEffect(() => {
@@ -219,9 +248,22 @@ const App = () => {
     }
     if (calendarFilter) params.set('filter', calendarFilter)
     if (selectedIndex) params.set('option', String(selectedIndex))
+    if (plannedLeaveSpend !== null) params.set('spend', String(plannedLeaveSpend))
     const newUrl = `${window.location.pathname}?${params.toString()}`
     window.history.replaceState(null, '', newUrl)
-  }, [year, country, subdivision, startDate, mustInclude, weekendDays, blackoutDates, members, calendarFilter, selectedIndex])
+  }, [
+    year,
+    country,
+    subdivision,
+    startDate,
+    mustInclude,
+    weekendDays,
+    blackoutDates,
+    members,
+    calendarFilter,
+    selectedIndex,
+    plannedLeaveSpend,
+  ])
 
   const handleCopyLink = async () => {
     const url = window.location.href
@@ -414,6 +456,28 @@ const App = () => {
             </div>
 
             <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Planned Leave Spend</div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <input
+                  type="number"
+                  min="0"
+                  value={plannedLeaveSpend ?? ''}
+                  onChange={(e) => setPlannedLeaveSpend(Number(e.target.value))}
+                  className="w-36 rounded-2xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
+                />
+                <span className="text-xs text-sand/60">
+                  Available: {familyLeaveBudget} days
+                </span>
+                {plannedLeaveSpend > familyLeaveBudget && (
+                  <span className="text-xs text-blood">Over budget</span>
+                )}
+              </div>
+              <div className="mt-2 text-[11px] text-sand/50">
+                Use this to model spending fewer or more days than your current balance.
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
               <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Blackout Dates</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {blackoutDates.length === 0 && (
@@ -469,7 +533,7 @@ const App = () => {
                   <div className="text-2xl font-semibold text-acid">{result.length} total days off</div>
                   <div>
                     Leave used (per person): <span className="font-semibold text-sand">{result.leaveUsed}</span> /{' '}
-                    {familyLeaveBudget}
+                    {plannedLeaveSpend ?? familyLeaveBudget}
                   </div>
                   {result.length > 0 ? (
                     <div>
@@ -491,6 +555,38 @@ const App = () => {
               ) : (
                 <p className="mt-4 text-sm text-sand/60">Enter your inputs to see the optimal break.</p>
               )}
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
+              <h3 className="font-display text-xl text-sand">Leave Tradeoff Curve</h3>
+              <p className="mt-2 text-sm text-sand/60">
+                Total days off vs leave used (0 → {curveSummary.maxLeave}). Click a suggestion to apply it.
+              </p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-ink/60 p-4">
+                {curvePoints.length ? (
+                  <CurveChart points={curvePoints} suggestions={curveSuggestions} />
+                ) : (
+                  <div className="text-sm text-sand/60">Run the planner to see the curve.</div>
+                )}
+              </div>
+              {curveSuggestions.length ? (
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-sand/60">
+                  <span className="uppercase tracking-[0.3em] text-sand/40">Suggestions</span>
+                  {curveSuggestions.map((s) => (
+                    <button
+                      type="button"
+                      key={s.leave}
+                      onClick={() => {
+                        setPlannedLeaveSpend(s.leave)
+                        handleCompute(0, s.leave)
+                      }}
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1"
+                    >
+                      {s.leave} leave → {s.daysOff} off
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
@@ -581,6 +677,107 @@ const App = () => {
       </div>
     </div>
   )
+}
+
+const CurveChart = ({ points, suggestions = [] }) => {
+  const width = 520
+  const height = 180
+  const padding = 24
+  const maxX = Math.max(...points.map((p) => p.leave), 1)
+  const maxY = Math.max(...points.map((p) => p.daysOff), 1)
+  const scaleX = (x) => padding + (x / maxX) * (width - padding * 2)
+  const scaleY = (y) => height - padding - (y / maxY) * (height - padding * 2)
+
+  const stepPath = points
+    .map((p, idx) => {
+      if (idx === 0) return `M ${scaleX(p.leave)} ${scaleY(p.daysOff)}`
+      const prev = points[idx - 1]
+      const x = scaleX(p.leave)
+      const y = scaleY(p.daysOff)
+      const prevX = scaleX(prev.leave)
+      const prevY = scaleY(prev.daysOff)
+      return `L ${x} ${prevY} L ${x} ${y}`
+    })
+    .join(' ')
+
+  const ticks = [0, Math.round(maxX / 2), maxX]
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full text-sand">
+      <rect x="0" y="0" width={width} height={height} rx="16" fill="rgba(255,255,255,0.02)" />
+      <path d={stepPath} fill="none" stroke="#d7ff3f" strokeWidth="3" />
+      {points.map((p) => (
+        <circle
+          key={p.leave}
+          cx={scaleX(p.leave)}
+          cy={scaleY(p.daysOff)}
+          r="3.5"
+          fill="#66d1ff"
+        />
+      ))}
+      {suggestions.map((p) => (
+        <g key={`s-${p.leave}`}>
+          <circle
+            cx={scaleX(p.leave)}
+            cy={scaleY(p.daysOff)}
+            r="6"
+            fill="rgba(255,63,110,0.35)"
+          />
+          <text
+            x={scaleX(p.leave)}
+            y={scaleY(p.daysOff) - 10}
+            textAnchor="middle"
+            fontSize="10"
+            fill="rgba(255,255,255,0.7)"
+          >
+            {p.leave}/{p.daysOff}
+          </text>
+        </g>
+      ))}
+      {ticks.map((t) => (
+        <text key={t} x={scaleX(t)} y={height - 6} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.5)">
+          {t}
+        </text>
+      ))}
+      <text x={padding} y={14} fontSize="10" fill="rgba(255,255,255,0.5)">
+        Days off
+      </text>
+    </svg>
+  )
+}
+
+const getCurveSuggestions = (points) => {
+  if (!points.length) return []
+  const efficiency = points
+    .filter((p) => p.leave > 0)
+    .map((p) => ({ ...p, ratio: p.daysOff / p.leave }))
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 3)
+
+  let knee = null
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const prev = points[i - 1]
+    const curr = points[i]
+    const next = points[i + 1]
+    const secondDiff = next.daysOff - 2 * curr.daysOff + prev.daysOff
+    if (!knee || secondDiff < knee.score) {
+      knee = { leave: curr.leave, daysOff: curr.daysOff, score: secondDiff }
+    }
+  }
+
+  const picks = [...efficiency]
+  if (knee) picks.push({ leave: knee.leave, daysOff: knee.daysOff })
+
+  const unique = []
+  const seen = new Set()
+  picks.forEach((p) => {
+    const key = `${p.leave}-${p.daysOff}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      unique.push({ leave: p.leave, daysOff: p.daysOff })
+    }
+  })
+  return unique.slice(0, 4)
 }
 
 export default App
