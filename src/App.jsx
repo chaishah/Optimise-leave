@@ -506,7 +506,7 @@ const App = () => {
             </div>
 
             <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Custom Work Week</div>
+              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Weekend</div>
               <div className="mt-4 flex flex-wrap gap-3">
                 {WEEKDAYS.map((day) => {
                   const checked = weekendDays.includes(day.value)
