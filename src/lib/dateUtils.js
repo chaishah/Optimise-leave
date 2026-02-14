@@ -21,9 +21,9 @@ export const getYearDates = (year) => {
   return dates
 }
 
-export const isWeekendUTC = (date) => {
+export const isWeekendUTC = (date, weekendDays = [0, 6]) => {
   const day = date.getUTCDay()
-  return day === 0 || day === 6
+  return weekendDays.includes(day)
 }
 
 export const monthLabel = (year, monthIndex) => {

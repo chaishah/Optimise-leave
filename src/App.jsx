@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Calendar from './components/Calendar.jsx'
 import { loadHolidays } from './lib/holidayLoader.js'
 import { buildDayMap, findOptimalWindow } from './lib/optimizer.js'
@@ -17,6 +17,15 @@ const COUNTRIES = [
 ]
 
 const YEARS = [2026, 2027]
+const WEEKDAYS = [
+  { label: 'Mon', value: 1 },
+  { label: 'Tue', value: 2 },
+  { label: 'Wed', value: 3 },
+  { label: 'Thu', value: 4 },
+  { label: 'Fri', value: 5 },
+  { label: 'Sat', value: 6 },
+  { label: 'Sun', value: 0 },
+]
 
 const App = () => {
   const [leaveDays, setLeaveDays] = useState(12)
@@ -28,12 +37,15 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState('Ready when you are.')
   const [startDate, setStartDate] = useState('2026-01-01')
+  const [mustInclude, setMustInclude] = useState('')
+  const [weekendDays, setWeekendDays] = useState([6, 0])
+  const [copied, setCopied] = useState(false)
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
 
   const dayMeta = useMemo(() => {
     if (!result || holidays.length === 0) return {}
-    const days = buildDayMap(year, holidays)
+    const days = buildDayMap(year, holidays, weekendDays)
     const meta = {}
     days.forEach((day) => {
       meta[day.iso] = {
@@ -45,7 +57,7 @@ const App = () => {
       }
     })
     return meta
-  }, [year, holidays, result])
+  }, [year, holidays, result, weekendDays])
 
   const handleCompute = async () => {
     setIsLoading(true)
@@ -59,14 +71,81 @@ const App = () => {
       setStatus(`Loaded ${list.length} holidays. Optimizing...`)
     }
 
-    const days = buildDayMap(year, list)
+    const days = buildDayMap(year, list, weekendDays)
     const filtered = days.filter((d) => d.iso >= startDate)
-    const opt = findOptimalWindow(filtered, Number(leaveDays))
+    const includeDate = mustInclude && mustInclude >= startDate ? mustInclude : ''
+    const opt = findOptimalWindow(filtered, Number(leaveDays), includeDate)
     setResult(opt)
     setIsLoading(false)
   }
 
   const canProceed = Number(leaveDays) > 0 && startDate
+
+  const counts = useMemo(() => {
+    if (!result || result.length === 0) {
+      return { weekends: 0, holidays: 0, leave: 0 }
+    }
+    const windowSet = new Set(result.windowDates)
+    let weekends = 0
+    let holidaysCount = 0
+    let leave = 0
+    Object.entries(dayMeta).forEach(([iso, meta]) => {
+      if (!windowSet.has(iso)) return
+      if (meta.isWeekend) weekends += 1
+      if (meta.isHoliday) holidaysCount += 1
+      if (meta.isLeave) leave += 1
+    })
+    return { weekends, holidays: holidaysCount, leave }
+  }, [dayMeta, result])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const parsedLeave = Number(params.get('leave'))
+    const parsedYear = Number(params.get('year'))
+    const parsedWeekend = params.get('weekend')
+    const parsedStart = params.get('start')
+    const parsedInclude = params.get('include')
+
+    if (!Number.isNaN(parsedLeave) && parsedLeave > 0) setLeaveDays(parsedLeave)
+    if (!Number.isNaN(parsedYear) && YEARS.includes(parsedYear)) setYear(parsedYear)
+    if (parsedStart) setStartDate(parsedStart)
+    if (parsedInclude) setMustInclude(parsedInclude)
+    const countryParam = params.get('country')
+    const subdivisionParam = params.get('subdivision')
+    if (countryParam && COUNTRIES.some((c) => c.code === countryParam)) setCountry(countryParam)
+    if (subdivisionParam) setSubdivision(subdivisionParam)
+    if (parsedWeekend) {
+      const parsed = parsedWeekend
+        .split(',')
+        .map((v) => Number(v))
+        .filter((v) => !Number.isNaN(v))
+      if (parsed.length) setWeekendDays(parsed)
+    }
+  }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams()
+    params.set('leave', String(leaveDays))
+    params.set('year', String(year))
+    params.set('country', country)
+    if (subdivision) params.set('subdivision', subdivision)
+    if (startDate) params.set('start', startDate)
+    if (mustInclude) params.set('include', mustInclude)
+    if (weekendDays.length) params.set('weekend', weekendDays.join(','))
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.replaceState(null, '', newUrl)
+  }, [leaveDays, year, country, subdivision, startDate, mustInclude, weekendDays])
+
+  const handleCopyLink = async () => {
+    const url = window.location.href
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }
 
   return (
     <div className="min-h-screen px-4 py-10 text-sand">
@@ -131,6 +210,16 @@ const App = () => {
                 />
               </label>
               <label className="space-y-2">
+                <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Must Include (Optional)</span>
+                <input
+                  type="date"
+                  value={mustInclude}
+                  onChange={(e) => setMustInclude(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-3 text-lg text-sand focus:outline-none focus:ring-2 focus:ring-acid"
+                />
+                <span className="text-[11px] text-sand/50">If before the start date, it is ignored.</span>
+              </label>
+              <label className="space-y-2">
                 <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Country</span>
                 <select
                   value={country}
@@ -160,6 +249,32 @@ const App = () => {
                   ))}
                 </select>
               </label>
+            </div>
+
+            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Custom Work Week</div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {WEEKDAYS.map((day) => {
+                  const checked = weekendDays.includes(day.value)
+                  return (
+                    <label key={day.value} className="flex items-center gap-2 text-sm text-sand/70">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setWeekendDays((prev) => [...new Set([...prev, day.value])])
+                          } else {
+                            setWeekendDays((prev) => prev.filter((d) => d !== day.value))
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-white/20 text-acid focus:ring-acid"
+                      />
+                      {day.label}
+                    </label>
+                  )
+                })}
+              </div>
             </div>
 
             <button
@@ -193,9 +308,14 @@ const App = () => {
                   <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-xs">
                     Leave dates: {result.leaveDates.length ? result.leaveDates.join(', ') : 'No leave days required'}
                   </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-sand/60">
+                    <span>Weekends: {counts.weekends}</span>
+                    <span>Holidays: {counts.holidays}</span>
+                    <span>Leave: {counts.leave}</span>
+                  </div>
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-sand/60">Complete the steps to unlock your optimal break.</p>
+                <p className="mt-4 text-sm text-sand/60">Enter your inputs to see the optimal break.</p>
               )}
             </div>
 
@@ -207,6 +327,13 @@ const App = () => {
                 <li>File: /public/data/holidays-{country}-{year}.csv</li>
                 <li>Loaded: {holidays.length} rows</li>
               </ul>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.3em] text-sand/70"
+              >
+                {copied ? 'Link copied' : 'Copy shareable plan link'}
+              </button>
             </div>
           </div>
         </section>

@@ -15,8 +15,17 @@ const DayCell = ({ date, meta }) => {
   if (info.isLeave) classes.push('bg-acid/30 border-acid text-ink font-semibold')
   if (info.isWindow) classes.push('shadow-ring')
 
+  const tooltip = [
+    info.label || null,
+    info.isLeave ? 'Leave' : null,
+    info.isHoliday ? 'Holiday' : null,
+    info.isWeekend ? 'Weekend' : null,
+  ]
+    .filter(Boolean)
+    .join(' • ')
+
   return (
-    <div className={classes.join(' ')}>
+    <div className={classes.join(' ')} title={tooltip}>
       <span className="text-sm">{date.getUTCDate()}</span>
       {info.label && <span className="text-[10px] text-sand/70">{info.label}</span>}
     </div>
@@ -24,10 +33,29 @@ const DayCell = ({ date, meta }) => {
 }
 
 const Calendar = ({ year, dayMeta }) => {
+  const handleJump = (e) => {
+    const target = document.getElementById(`month-${e.target.value}`)
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <div className="space-y-10">
+      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="text-xs uppercase tracking-[0.3em] text-sand/50">Jump to month</div>
+        <select
+          className="rounded-xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
+          onChange={handleJump}
+          defaultValue="0"
+        >
+          {Array.from({ length: 12 }).map((_, idx) => (
+            <option key={idx} value={idx}>
+              {monthLabel(year, idx)}
+            </option>
+          ))}
+        </select>
+      </div>
       {Array.from({ length: 12 }).map((_, idx) => (
-        <section key={idx} className="space-y-3">
+        <section key={idx} id={`month-${idx}`} className="space-y-3 scroll-mt-24">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-xl text-sand">{monthLabel(year, idx)}</h3>
             <div className="text-xs uppercase tracking-widest text-sand/50">{year}</div>
