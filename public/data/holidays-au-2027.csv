@@ -1,0 +1,107 @@
+date,country,subdivision,name,type
+2027-01-01,au,ACT,New Year's Day,public
+2027-01-26,au,ACT,Australia Day,public
+2027-03-08,au,ACT,Canberra Day,public
+2027-03-26,au,ACT,Good Friday,public
+2027-03-27,au,ACT,Easter Saturday,public
+2027-03-28,au,ACT,Easter Sunday,public
+2027-03-29,au,ACT,Easter Monday,public
+2027-04-26,au,ACT,ANZAC Day (substitute),public
+2027-05-31,au,ACT,Reconciliation Day,public
+2027-06-14,au,ACT,King's Birthday,public
+2027-10-04,au,ACT,Labour Day,public
+2027-12-25,au,ACT,Christmas Day,public
+2027-12-27,au,ACT,Christmas Day (additional),public
+2027-12-26,au,ACT,Boxing Day,public
+2027-12-28,au,ACT,Boxing Day (additional),public
+2027-01-01,au,NSW,New Year's Day,public
+2027-01-26,au,NSW,Australia Day,public
+2027-03-26,au,NSW,Good Friday,public
+2027-03-27,au,NSW,Easter Saturday,public
+2027-03-28,au,NSW,Easter Sunday,public
+2027-03-29,au,NSW,Easter Monday,public
+2027-04-25,au,NSW,Anzac Day,public
+2027-06-14,au,NSW,King's Birthday,public
+2027-10-04,au,NSW,Labour Day,public
+2027-12-25,au,NSW,Christmas Day,public
+2027-12-27,au,NSW,Christmas Day (additional),public
+2027-12-26,au,NSW,Boxing Day,public
+2027-12-28,au,NSW,Boxing Day (additional),public
+2027-01-01,au,NT,New Year's Day,public
+2027-01-26,au,NT,Australia Day,public
+2027-03-26,au,NT,Good Friday,public
+2027-03-27,au,NT,Easter Saturday,public
+2027-03-28,au,NT,Easter Sunday,public
+2027-03-29,au,NT,Easter Monday,public
+2027-04-26,au,NT,Anzac Day (substitute),public
+2027-05-03,au,NT,May Day,public
+2027-06-14,au,NT,King's Birthday,public
+2027-08-02,au,NT,Picnic Day,public
+2027-12-25,au,NT,Christmas Day,public
+2027-12-27,au,NT,Christmas Day (additional),public
+2027-12-26,au,NT,Boxing Day,public
+2027-12-28,au,NT,Boxing Day (additional),public
+2027-01-01,au,QLD,New Year's Day,public
+2027-01-26,au,QLD,Australia Day,public
+2027-03-26,au,QLD,Good Friday,public
+2027-03-27,au,QLD,Easter Saturday,public
+2027-03-28,au,QLD,Easter Sunday,public
+2027-03-29,au,QLD,Easter Monday,public
+2027-04-25,au,QLD,Anzac Day,public
+2027-05-03,au,QLD,Labour Day,public
+2027-10-04,au,QLD,King's Birthday,public
+2027-12-25,au,QLD,Christmas Day,public
+2027-12-27,au,QLD,Christmas Day (additional),public
+2027-12-26,au,QLD,Boxing Day,public
+2027-12-28,au,QLD,Boxing Day (additional),public
+2027-01-01,au,SA,New Year's Day,public
+2027-01-26,au,SA,Australia Day,public
+2027-03-08,au,SA,Adelaide Cup Day,public
+2027-03-26,au,SA,Good Friday,public
+2027-03-27,au,SA,Easter Saturday,public
+2027-03-28,au,SA,Easter Sunday,public
+2027-03-29,au,SA,Easter Monday,public
+2027-04-25,au,SA,Anzac Day,public
+2027-06-14,au,SA,King's Birthday,public
+2027-10-04,au,SA,Labour Day,public
+2027-12-25,au,SA,Christmas Day,public
+2027-12-27,au,SA,Christmas Day (additional),public
+2027-12-26,au,SA,Proclamation Day,public
+2027-12-28,au,SA,Proclamation Day (additional),public
+2027-01-01,au,TAS,New Year's Day,public
+2027-01-26,au,TAS,Australia Day,public
+2027-03-08,au,TAS,Eight Hours Day,public
+2027-03-26,au,TAS,Good Friday,public
+2027-03-29,au,TAS,Easter Monday,public
+2027-04-25,au,TAS,Anzac Day,public
+2027-06-14,au,TAS,King's Birthday,public
+2027-12-27,au,TAS,Christmas Day (observed),public
+2027-12-28,au,TAS,Boxing Day (observed),public
+2027-01-01,au,VIC,New Year's Day,public
+2027-01-26,au,VIC,Australia Day,public
+2027-03-08,au,VIC,Labour Day,public
+2027-03-26,au,VIC,Good Friday,public
+2027-03-27,au,VIC,Easter Saturday,public
+2027-03-28,au,VIC,Easter Sunday,public
+2027-03-29,au,VIC,Easter Monday,public
+2027-04-25,au,VIC,ANZAC Day,public
+2027-06-14,au,VIC,King's Birthday,public
+2027-11-02,au,VIC,Melbourne Cup,public
+2027-12-25,au,VIC,Christmas Day,public
+2027-12-27,au,VIC,Christmas Day (additional),public
+2027-12-26,au,VIC,Boxing Day,public
+2027-12-28,au,VIC,Boxing Day (additional),public
+2027-01-01,au,WA,New Year's Day,public
+2027-01-26,au,WA,Australia Day,public
+2027-03-01,au,WA,Labour Day,public
+2027-03-26,au,WA,Good Friday,public
+2027-03-28,au,WA,Easter Sunday,public
+2027-03-29,au,WA,Easter Monday,public
+2027-04-25,au,WA,Anzac Day,public
+2027-04-26,au,WA,Anzac Day (additional),public
+2027-06-07,au,WA,Western Australia Day,public
+2027-09-27,au,WA,King's Birthday,public
+2027-12-25,au,WA,Christmas Day,public
+2027-12-27,au,WA,Christmas Day (additional),public
+2027-12-26,au,WA,Boxing Day,public
+2027-12-28,au,WA,Boxing Day (additional),public
