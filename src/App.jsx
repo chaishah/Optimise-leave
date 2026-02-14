@@ -94,12 +94,12 @@ const App = () => {
     setIsLoading(false)
   }
 
-  const canProceed = familyLeaveBudget > 0 && startDate
-
   const familyLeaveBudget = useMemo(() => {
     if (!members.length) return 0
     return Math.min(...members.map((m) => Number(m.leaveDays) || 0))
   }, [members])
+
+  const canProceed = familyLeaveBudget > 0 && startDate
 
   const counts = useMemo(() => {
     if (!result || result.length === 0) {
