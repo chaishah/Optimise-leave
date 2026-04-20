@@ -6,8 +6,8 @@ export default {
       colors: {
         ink: '#0a0a0f',
         sand: '#f0ede8',
-        acid: '#00BD7D',
-        primary: '#00BD7D',
+        acid: '#6366F1',
+        primary: '#6366F1',
         blood: '#DC2626',
         sky: '#60B9F0',
         moss: '#16A34A',
@@ -25,8 +25,8 @@ export default {
         loud: '0 20px 60px rgba(0,0,0,0.5)',
         card: '0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
         elevated: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-        glow: '0 0 24px rgba(0,189,125,0.3), 0 4px 12px rgba(0,0,0,0.3)',
-        ring: '0 0 0 3px rgba(0,189,125,0.4)',
+        glow: '0 0 24px rgba(99,102,241,0.3), 0 4px 12px rgba(0,0,0,0.3)',
+        ring: '0 0 0 3px rgba(99,102,241,0.4)',
       },
       keyframes: {
         pulsein: {

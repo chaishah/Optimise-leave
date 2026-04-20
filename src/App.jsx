@@ -571,7 +571,7 @@ const App = () => {
                   <span className={LABEL_CLS}>Year</span>
                   <select
                     value={year}
-                    onChange={(e) => setYear(Number(e.target.value))}
+                    onChange={(e) => { const y = Number(e.target.value); setYear(y); setStartDate(`${y}-01-01`) }}
                     className={INPUT_CLS}
                   >
                     {YEARS.map((y) => (
