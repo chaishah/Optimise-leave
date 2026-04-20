@@ -3,22 +3,26 @@ import { dayLabel, getMonthMatrix, monthLabel, toISODateUTC } from '../lib/dateU
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 const DayCell = ({ date, meta, filterMode }) => {
-  if (!date) return <div className="h-12 rounded-lg bg-black/20" />
+  if (!date) return <div className="h-11 rounded-lg bg-l2/40" />
 
   const iso = toISODateUTC(date)
   const info = meta[iso] || {}
 
-  const base = 'h-12 rounded-lg border border-white/10 flex flex-col items-center justify-center text-xs'
-  const classes = [base]
-  if (filterMode === 'window' && !info.isWindow) classes.push('opacity-30')
   if (filterMode === 'off' && !info.isWeekend && !info.isHoliday && !info.isLeave && !info.isBlocked) {
-    return <div className="h-12 rounded-lg bg-black/20" />
+    return <div className="h-11 rounded-lg bg-l2/40" />
   }
-  if (info.isWeekend) classes.push('bg-white/5 text-sand/70')
-  if (info.isHoliday) classes.push('bg-sky/20 border-sky/50 text-sky')
-  if (info.isLeave) classes.push('bg-acid/30 border-acid text-ink font-semibold')
-  if (info.isBlocked) classes.push('bg-blood/20 border-blood/60 text-blood')
-  if (info.isWindow) classes.push('shadow-ring')
+
+  let bg = 'bg-transparent border border-l3'
+  let text = 'text-sand/60'
+  let ring = ''
+
+  if (info.isWeekend) { bg = 'bg-l2 border border-l3'; text = 'text-sand/40' }
+  if (info.isHoliday) { bg = 'bg-sky/10 border border-sky/30'; text = 'text-sky' }
+  if (info.isLeave)   { bg = 'bg-primary/20 border border-primary/50'; text = 'text-primary font-semibold' }
+  if (info.isBlocked) { bg = 'bg-blood/10 border border-blood/30'; text = 'text-blood' }
+  if (info.isWindow)  ring = 'ring-1 ring-primary/30 ring-offset-1 ring-offset-ink'
+
+  const opacity = filterMode === 'window' && !info.isWindow ? 'opacity-25' : ''
 
   const tooltip = [
     info.label || null,
@@ -28,13 +32,16 @@ const DayCell = ({ date, meta, filterMode }) => {
     info.isBlocked ? 'Blackout' : null,
   ]
     .filter(Boolean)
-    .join(' • ')
+    .join(' · ')
 
   return (
-    <div className={classes.join(' ')} title={tooltip}>
-      <span className="text-sm">{date.getUTCDate()}</span>
+    <div
+      className={`flex h-11 flex-col items-center justify-center rounded-lg text-xs ${bg} ${text} ${ring} ${opacity} transition-colors`}
+      title={tooltip}
+    >
+      <span className="text-sm leading-none">{date.getUTCDate()}</span>
       {info.label && (
-        <span className="hidden md:block text-[10px] text-sand/70 truncate max-w-[56px]">
+        <span className="mt-0.5 hidden max-w-[52px] truncate text-[9px] opacity-70 md:block">
           {info.label}
         </span>
       )}
@@ -50,10 +57,10 @@ const Calendar = ({ year, dayMeta, filterMode = 'all', idPrefix = 'main' }) => {
 
   return (
     <div className="space-y-10">
-      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-        <div className="text-xs uppercase tracking-[0.3em] text-sand/50">Jump to month</div>
+      <div className="flex items-center justify-between rounded-xl border border-l3 bg-l2 px-4 py-3">
+        <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-sand/40">Jump to month</div>
         <select
-          className="rounded-xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
+          className="rounded-lg border border-l3 bg-ink px-3 py-1.5 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40"
           onChange={handleJump}
           defaultValue="0"
         >
@@ -64,15 +71,18 @@ const Calendar = ({ year, dayMeta, filterMode = 'all', idPrefix = 'main' }) => {
           ))}
         </select>
       </div>
+
       {Array.from({ length: 12 }).map((_, idx) => (
-        <section key={idx} id={`${idPrefix}-month-${idx}`} className="space-y-3 scroll-mt-24">
+        <section key={idx} id={`${idPrefix}-month-${idx}`} className="scroll-mt-24 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-display text-xl text-sand">{monthLabel(year, idx)}</h3>
-            <div className="text-xs uppercase tracking-widest text-sand/50">{year}</div>
+            <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-sand">
+              {monthLabel(year, idx)}
+            </h3>
+            <div className="font-mono text-[10px] text-sand/30">{year}</div>
           </div>
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1.5">
             {WEEK_DAYS.map((day) => (
-              <div key={day} className="text-[10px] uppercase tracking-widest text-sand/60">
+              <div key={day} className="pb-1 text-center text-[9px] font-medium uppercase tracking-widest text-sand/30">
                 {day}
               </div>
             ))}

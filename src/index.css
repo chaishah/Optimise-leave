@@ -13,30 +13,52 @@
 :root.theme-light body {
   filter: invert(1) hue-rotate(180deg);
   background:
-    radial-gradient(circle at 20% 10%, rgba(102, 209, 255, 0.06), transparent 50%),
-    radial-gradient(circle at 80% 0%, rgba(215, 255, 63, 0.04), transparent 45%),
+    radial-gradient(ellipse at 20% 0%, rgba(0, 189, 125, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 10%, rgba(96, 185, 240, 0.04) 0%, transparent 50%),
     #f6f0e9;
 }
 
 body {
   background:
-    radial-gradient(circle at 20% 10%, rgba(102, 209, 255, 0.12), transparent 50%),
-    radial-gradient(circle at 80% 0%, rgba(215, 255, 63, 0.08), transparent 45%),
-    #0e0e12;
+    radial-gradient(ellipse at 15% 0%, rgba(0, 189, 125, 0.1) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 5%, rgba(96, 185, 240, 0.05) 0%, transparent 45%),
+    #0a0a0f;
   min-height: 100vh;
+}
+
+/* Subtle grid overlay for depth */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #d7ff3f #1d1d24;
+  scrollbar-color: #00BD7D #111118;
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #111118;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #d7ff3f;
+  background: #00BD7D;
   border-radius: 999px;
 }
 
@@ -78,6 +100,10 @@ body {
   body {
     background: #fff !important;
     filter: none !important;
+  }
+
+  body::before {
+    display: none;
   }
 
   .no-print {

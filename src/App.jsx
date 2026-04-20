@@ -47,6 +47,15 @@ const WEEKDAYS = [
 
 const DEFAULT_MEMBERS = [{ id: 1, name: 'You', leaveDays: 12 }]
 
+/* ─── shared class fragments ─── */
+const CARD = 'rounded-2xl border border-l3 bg-l1 shadow-elevated'
+const PANEL = 'rounded-xl border border-l3 bg-l2 p-5'
+const INPUT_CLS =
+  'w-full rounded-xl border border-l3 bg-ink px-4 py-3 text-sm text-sand placeholder:text-sand/30 focus:outline-none focus:ring-2 focus:ring-primary/40'
+const LABEL_CLS = 'text-[10px] font-medium uppercase tracking-[0.28em] text-sand/40'
+const PILL_ACTIVE = 'border-primary/50 bg-primary/10 text-sand'
+const PILL_IDLE = 'border-l3 bg-l2 text-sand/50 hover:text-sand/80'
+
 const App = () => {
   const [country, setCountry] = useState('au')
   const [subdivision, setSubdivision] = useState('NSW')
@@ -117,14 +126,14 @@ const App = () => {
 
   const handleCompute = async (preferredIndex = 0, spendOverride) => {
     setIsLoading(true)
-    setStatus('Loading holidays...')
+    setStatus('Loading holidays…')
     const list = await loadHolidays({ country, year, subdivision })
     setHolidays(list)
 
     if (list.length === 0) {
       setStatus('No holidays loaded. Populate the CSV to unlock accurate results.')
     } else {
-      setStatus(`Loaded ${list.length} holidays. Optimizing...`)
+      setStatus(`Loaded ${list.length} holidays. Optimizing…`)
     }
 
     const days = buildDayMap(year, list, weekendDays)
@@ -155,6 +164,7 @@ const App = () => {
       suggestionMap[s.leave] = findTopWindows(filteredWithBlocks, s.leave, includeDate, 3)
     })
     setSuggestionWindows(suggestionMap)
+    setStatus(`Done — ${windows[0]?.length ?? 0} days off found.`)
     setIsLoading(false)
   }
 
@@ -442,20 +452,23 @@ const App = () => {
 
   return (
     <div className="min-h-screen px-4 py-10 text-sand">
-      <div className="mx-auto max-w-6xl space-y-10 no-print">
-        <header className="grid gap-4 md:grid-cols-[1.2fr_1fr] md:items-end">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.35em] text-sand/60">
-              Leave Optimizer
+      <div className="mx-auto max-w-6xl space-y-8 no-print">
+
+        {/* ── Header ── */}
+        <header className="grid gap-6 md:grid-cols-[1.3fr_1fr] md:items-start">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-primary/20 bg-primary/[0.08] px-4 py-1.5">
+              <span className="size-1.5 rounded-full bg-primary animate-pulsein" />
+              <span className="text-[10px] font-medium uppercase tracking-[0.3em] text-primary">Leave Optimizer</span>
             </div>
-            <h1 className="font-display text-4xl md:text-5xl text-sand">
-              Plan your leave around public holidays.
+            <h1 className="font-display text-4xl font-semibold uppercase leading-tight tracking-wide text-sand md:text-5xl">
+              Plan your leave<br />around public holidays.
             </h1>
-            <p className="text-sand/70">
+            <p className="max-w-md text-sm leading-relaxed text-sand/60">
               Enter your balance, location, and start date. The planner finds the longest continuous break
               using weekends and public holidays.
             </p>
-            <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-sand/60">
+            <div className="flex flex-wrap gap-2">
               {['planner', 'guide'].map((tab) => (
                 <button
                   key={tab}
@@ -465,10 +478,8 @@ const App = () => {
                     const basePath = tab === 'guide' ? '/guide' : '/'
                     window.history.pushState(null, '', basePath + window.location.search)
                   }}
-                  className={`rounded-full border px-4 py-2 ${
-                    view === tab
-                      ? 'border-acid/60 bg-acid/10 text-sand'
-                      : 'border-white/10 bg-white/5 text-sand/60'
+                  className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.25em] transition-colors ${
+                    view === tab ? PILL_ACTIVE : PILL_IDLE
                   }`}
                 >
                   {tab === 'planner' ? 'Planner' : 'How it works'}
@@ -477,591 +488,648 @@ const App = () => {
               <button
                 type="button"
                 onClick={handleReset}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sand/60"
+                className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.25em] transition-colors ${PILL_IDLE}`}
               >
                 Reset
               </button>
               <button
                 type="button"
                 onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sand/60"
+                className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.25em] transition-colors ${PILL_IDLE}`}
               >
                 {theme === 'dark' ? 'Light mode' : 'Dark mode'}
               </button>
             </div>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-loud">
-            <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Status</div>
-            <div className="mt-2 text-lg font-semibold text-acid">{status}</div>
-            <div className="mt-3 text-xs text-sand/60">
-              Holiday data is loaded from `public/data/`.
-            </div>
-          </div>
-        </header>
 
-        {view === 'guide' ? (
-          <section className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
-            <h2 className="font-display text-2xl text-sand">How to use this planner</h2>
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <div className="space-y-3 text-sm text-sand/70">
-                <h3 className="font-semibold text-sand">1) Set your region</h3>
-                <p>
-                  Choose your country and state/region so the planner can load the correct public holidays.
-                  Holiday data comes from the CSV files in <span className="text-sand">public/data/</span>.
-                </p>
-                <h3 className="font-semibold text-sand">2) Pick your timeframe</h3>
-                <p>
-                  Use “Consider Leave From” to restrict the search to dates on or after that day. Optionally
-                  set “Must Include” to force the plan to include a specific date.
-                </p>
-                <h3 className="font-semibold text-sand">3) Define your work week</h3>
-                <p>
-                  Select which days are weekends for you. The planner treats those as automatic days off.
-                </p>
-              </div>
-              <div className="space-y-3 text-sm text-sand/70">
-                <h3 className="font-semibold text-sand">4) Family planning</h3>
-                <p>
-                  Add family members and their leave balances. The planner uses the minimum balance to find
-                  a shared break that works for everyone.
-                </p>
-                <h3 className="font-semibold text-sand">5) Blackout dates</h3>
-                <p>
-                  Add dates you cannot take off (e.g., deadlines). The optimizer will avoid any window that
-                  touches them.
-                </p>
-                <h3 className="font-semibold text-sand">6) Tradeoff curve</h3>
-                <p>
-                  Use “Planned Leave Spend” to model spending fewer or more days than you have. The curve shows
-                  how total days off grows as you spend more leave.
-                </p>
-              </div>
+          {/* Status card */}
+          <div className={`${CARD} p-6`}>
+            <div className={LABEL_CLS}>Status</div>
+            <div className="mt-3 font-display text-xl font-medium text-primary">{status}</div>
+            <div className="mt-4 h-px bg-l3" />
+            <div className="mt-4 font-mono text-[11px] text-sand/40">
+              holiday data · public/data/
             </div>
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs text-sand/60">
-              Tip: Use the “Copy shareable plan link” button to send your exact setup to someone else.
-            </div>
-          </section>
-        ) : (
-          <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-          <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
-            <h2 className="font-display text-2xl text-sand">Inputs</h2>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Year</span>
-                <select
-                  value={year}
-                  onChange={(e) => setYear(Number(e.target.value))}
-                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-3 text-lg text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                >
-                  {YEARS.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Consider Leave From</span>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-3 text-lg text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Must Include (Optional)</span>
-                <input
-                  type="date"
-                  value={mustInclude}
-                  onChange={(e) => setMustInclude(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-3 text-lg text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                />
-                <span className="text-[11px] text-sand/50">If before the start date, it is ignored.</span>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.3em] text-sand/50">Country</span>
-                <select
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-3 text-lg text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.3em] text-sand/50">State / Region</span>
-                <select
-                  value={subdivision}
-                  onChange={(e) => setSubdivision(e.target.value)}
-                  disabled={countryInfo.subdivisions.length === 0}
-                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-3 text-lg text-sand focus:outline-none focus:ring-2 focus:ring-acid disabled:opacity-40"
-                >
-                  {countryInfo.subdivisions.length === 0 && <option>National</option>}
-                  {countryInfo.subdivisions.map((s) => (
-                    <option key={s.code} value={s.code}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Weekend</div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {WEEKDAYS.map((day) => {
-                  const checked = weekendDays.includes(day.value)
-                  return (
-                    <label key={day.value} className="flex items-center gap-2 text-sm text-sand/70">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setWeekendDays((prev) => [...new Set([...prev, day.value])])
-                          } else {
-                            setWeekendDays((prev) => prev.filter((d) => d !== day.value))
-                          }
-                        }}
-                        className="h-4 w-4 rounded border-white/20 text-acid focus:ring-acid"
-                      />
-                      {day.label}
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Family Members</div>
-              <div className="mt-4 space-y-3">
-                {members.map((member) => (
-                  <div key={member.id} className="flex flex-wrap gap-2">
-                    <input
-                      type="text"
-                      value={member.name}
-                      onChange={(e) =>
-                        setMembers((prev) =>
-                          prev.map((m) => (m.id === member.id ? { ...m, name: e.target.value } : m))
-                        )
-                      }
-                      className="flex-1 min-w-[160px] rounded-2xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                      placeholder="Name"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      value={member.leaveDays}
-                      onChange={(e) =>
-                        setMembers((prev) =>
-                          prev.map((m) =>
-                            m.id === member.id ? { ...m, leaveDays: e.target.value } : m
-                          )
-                        )
-                      }
-                      className="w-28 rounded-2xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                      placeholder="Leave"
-                    />
-                    {members.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setMembers((prev) => prev.filter((m) => m.id !== member.id))}
-                        className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.3em] text-sand/60"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-sand/50">
-                <span>Family leave budget: {familyLeaveBudget} days (minimum across members).</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMembers((prev) => [
-                      ...prev,
-                      { id: Date.now(), name: `Member ${prev.length + 1}`, leaveDays: 10 },
-                    ])
-                  }
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-sand/70"
-                >
-                  Add member
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Planned Leave Spend</div>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <input
-                  type="number"
-                  min="0"
-                  value={plannedLeaveSpend ?? ''}
-                  onChange={(e) => setPlannedLeaveSpend(Number(e.target.value))}
-                  className="w-36 rounded-2xl border border-white/10 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                />
-                <span className="text-xs text-sand/60">
-                  Available: {familyLeaveBudget} days
-                </span>
-                {plannedLeaveSpend > familyLeaveBudget && (
-                  <span className="text-xs text-blood">Over budget</span>
-                )}
-              </div>
-              <div className="mt-2 text-[11px] text-sand/50">
-                Use this to model spending fewer or more days than your current balance.
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-              <div className="text-xs uppercase tracking-[0.35em] text-sand/50">Blackout Dates</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {blackoutDates.length === 0 && (
-                  <span className="text-xs text-sand/50">No blackout dates.</span>
-                )}
-                {blackoutDates.map((date) => (
-                  <button
-                    type="button"
-                    key={date}
-                    onClick={() => setBlackoutDates((prev) => prev.filter((d) => d !== date))}
-                    className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-sand/70"
-                  >
-                    {date} ✕
-                  </button>
-                ))}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <input
-                  type="date"
-                  value={blackoutInput}
-                  onChange={(e) => setBlackoutInput(e.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-ink px-4 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-acid"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!blackoutInput) return
-                    setBlackoutDates((prev) => [...new Set([...prev, blackoutInput])])
-                    setBlackoutInput('')
-                  }}
-                  className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.3em] text-sand/70"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              disabled={!canProceed || isLoading}
-              onClick={() => handleCompute(selectedIndex)}
-              className="mt-6 w-full rounded-full bg-acid px-6 py-4 text-sm font-semibold uppercase tracking-[0.3em] text-ink shadow-loud disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-sand/40"
-            >
-              {isLoading ? 'Calculating...' : 'Find Best Window'}
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-loud">
-              <h3 className="font-display text-xl text-sand">Optimal Window</h3>
-              {result ? (
-                <div className="mt-4 space-y-3 text-sm text-sand/80">
-                  <div className="text-2xl font-semibold text-acid">{result.length} total days off</div>
-                  <div>
-                    Leave used (per person): <span className="font-semibold text-sand">{result.leaveUsed}</span> /{' '}
-                    {plannedLeaveSpend ?? familyLeaveBudget}
-                  </div>
-                  {result.length > 0 ? (
-                    <div>
-                      Window: <span className="font-semibold text-sand">{result.windowDates[0]}</span> →{' '}
-                      <span className="font-semibold text-sand">{result.windowDates.at(-1)}</span>
-                    </div>
-                  ) : (
-                    <div>No valid window found from the selected start date.</div>
-                  )}
-                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-xs">
-                    Leave dates: {result.leaveDates.length ? result.leaveDates.join(', ') : 'No leave days required'}
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-xs text-sand/60">
-                    <span>Weekends: {counts.weekends}</span>
-                    <span>Holidays: {counts.holidays}</span>
-                    <span>Leave: {counts.leave}</span>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-xs">
-                    <div className="text-[10px] uppercase tracking-[0.3em] text-sand/50">Per‑member plan</div>
-                    <div className="mt-2 space-y-2">
-                      {perMemberPlan.map((m) => (
-                        <div key={m.id} className="flex items-center justify-between">
-                          <span className="text-sand/70">{m.name}</span>
-                          <span className={m.remaining < 0 ? 'text-blood' : 'text-sand'}>
-                            {m.used} used • {m.remaining} left
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-2 text-xs uppercase tracking-[0.3em] text-sand/60">
-                    <button
-                      type="button"
-                      disabled={!canExport}
-                      onClick={handleExportIcs}
-                      className="rounded-full border border-white/10 bg-white/5 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Download .ics
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!canExport}
-                      onClick={handlePrint}
-                      className="rounded-full border border-white/10 bg-white/5 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Print summary
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-sand/60">Enter your inputs to see the optimal break.</p>
-              )}
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
-              <h3 className="font-display text-xl text-sand">Leave Tradeoff Curve</h3>
-              <p className="mt-2 text-sm text-sand/60">
-                Total days off vs leave used (0 → {curveSummary.maxLeave}). Click a suggestion to apply it.
-              </p>
-              <div className="mt-4 rounded-2xl border border-white/10 bg-ink/60 p-4">
-                {curvePoints.length ? (
-                  <CurveChart points={curvePoints} suggestions={curveSuggestions} />
-                ) : (
-                  <div className="text-sm text-sand/60">Run the planner to see the curve.</div>
-                )}
-              </div>
-              {tradeoffInsights.bestJumps.length ? (
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-xs text-sand/70">
-                  <div className="text-[10px] uppercase tracking-[0.3em] text-sand/50">
-                    Best marginal gains
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    {tradeoffInsights.bestJumps.map((j) => (
-                      <span key={`${j.from}-${j.to}`}>
-                        {j.from}→{j.to} leave: +{j.gain} days off
-                      </span>
-                    ))}
-                  </div>
-                  {tradeoffInsights.diminishing ? (
-                    <div className="mt-2 text-sand/50">
-                      Diminishing returns around {tradeoffInsights.diminishing.to} leave (
-                      +{tradeoffInsights.diminishing.gain} day).
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {curveSuggestions.length ? (
-                <div className="mt-4 flex flex-wrap gap-2 text-xs text-sand/60">
-                  <span className="uppercase tracking-[0.3em] text-sand/40">Suggestions</span>
-                  {curveSuggestions.map((s) => (
-                    <button
-                      type="button"
-                      key={s.leave}
-                      onClick={() => {
-                        setPlannedLeaveSpend(s.leave)
-                        handleCompute(0, s.leave)
-                      }}
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1"
-                    >
-                      {s.leave} leave → {s.daysOff} off
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
-              <h3 className="font-display text-xl text-sand">Top Options</h3>
-              {topWindows.length ? (
-                <div className="mt-4 space-y-3 text-sm text-sand/70">
-                  {topWindows.map((win, idx) => (
-                    <button
-                      type="button"
-                      key={`${win.start}-${win.end}`}
-                      onClick={() => {
-                        setSelectedIndex(idx)
-                        setResult(win)
-                      }}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left ${
-                        idx === selectedIndex
-                          ? 'border-acid/60 bg-acid/10 text-sand'
-                          : 'border-white/10 bg-white/5 text-sand/70'
-                      }`}
-                    >
-                      <div className="text-sm font-semibold">
-                        Option {idx + 1}: {win.length} days off
-                      </div>
-                      <div className="text-xs text-sand/60">
-                        {win.windowDates[0]} → {win.windowDates.at(-1)}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-sand/60">No options computed yet.</p>
-              )}
-            </div>
-
-            <details className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
-              <summary className="cursor-pointer list-none font-display text-xl text-sand">
-                Multiple Best Windows
-                <span className="ml-2 text-xs uppercase tracking-[0.3em] text-sand/50">
-                  (expand)
-                </span>
-              </summary>
-              {curveSuggestions.length ? (
-                <div className="mt-4 space-y-4 text-sm text-sand/70">
-                  {curveSuggestions.map((s) => (
-                    <div key={s.leave} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <div className="text-xs uppercase tracking-[0.3em] text-sand/50">
-                        {s.leave} leave → {s.daysOff} off
-                      </div>
-                      <div className="mt-3 space-y-2">
-                        {(suggestionWindows[s.leave] || []).map((win, idx) => (
-                          <button
-                            key={`${s.leave}-${win.start}-${idx}`}
-                            type="button"
-                            onClick={() => {
-                              setPlannedLeaveSpend(s.leave)
-                              setSelectedIndex(0)
-                              setResult(win)
-                            }}
-                            className="w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-left text-xs text-sand/70"
-                          >
-                            Option {idx + 1}: {win.windowDates[0]} → {win.windowDates.at(-1)} ({win.length} days)
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-sand/60">Run the planner to see grouped options.</p>
-              )}
-            </details>
-
-            <div className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
-              <h3 className="font-display text-xl text-sand">Holiday Data Status</h3>
-              <ul className="mt-4 space-y-2 text-sm text-sand/70">
-                <li>Country: {countryInfo.name}</li>
-                <li>State: {countryInfo.subdivisions.length ? subdivision : 'National'}</li>
-                <li>File: /public/data/holidays-{country}-{year}.csv</li>
-                <li>Loaded: {holidays.length} rows</li>
-                <li>Family members: {members.length}</li>
-              </ul>
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.3em] text-sand/70"
-              >
-                {copied ? 'Link copied' : 'Copy shareable plan link'}
-              </button>
-            </div>
-          </div>
-          </section>
-        )}
-
-        {view === 'planner' && (
-          <section className="rounded-3xl border border-white/10 bg-black/30 p-6 shadow-loud">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-2xl text-sand">Calendar View</h2>
-            <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.3em] text-sand/60">
-              <span className="rounded-full border border-sky/50 bg-sky/10 px-3 py-1 text-sky">Holiday</span>
-              <span className="rounded-full border border-acid/60 bg-acid/20 px-3 py-1 text-ink">Leave</span>
-              <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1">Weekend</span>
-              <span className="rounded-full border border-blood/50 bg-blood/10 px-3 py-1 text-blood">
-                Blackout
-              </span>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.3em] text-sand/50">
-            <span>Filter</span>
-            {['all', 'window', 'off'].map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setCalendarFilter(mode)}
-                className={`rounded-full border px-3 py-1 ${
-                  calendarFilter === mode
-                    ? 'border-acid/60 bg-acid/10 text-sand'
-                    : 'border-white/10 bg-white/5 text-sand/60'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-sand/50">
-            <span>View</span>
-            {['combined', 'per-member'].map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setCalendarViewMode(mode)}
-                className={`rounded-full border px-3 py-1 ${
-                  calendarViewMode === mode
-                    ? 'border-acid/60 bg-acid/10 text-sand'
-                    : 'border-white/10 bg-white/5 text-sand/60'
-                }`}
-              >
-                {mode === 'combined' ? 'Combined' : 'Per member'}
-              </button>
-            ))}
-          </div>
-          <div className="mt-8">
-            {calendarViewMode === 'combined' ? (
-              <Calendar year={year} dayMeta={dayMeta} filterMode={calendarFilter} idPrefix="main" />
-            ) : (
-              <div className="space-y-6">
-                {members.map((member) => {
-                  const balance = Number(member.leaveDays) || 0
-                  const used = result?.leaveUsed ?? 0
-                  const remaining = balance - used
-                  return (
-                    <details
-                      key={member.id}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
-                    >
-                      <summary className="cursor-pointer list-none text-sm text-sand/80">
-                        {member.name} • {used} used •{' '}
-                        <span className={remaining < 0 ? 'text-blood' : 'text-sand'}>
-                          {remaining} left
-                        </span>
-                      </summary>
-                      <div className="mt-4">
-                        <Calendar
-                          year={year}
-                          dayMeta={dayMeta}
-                          filterMode={calendarFilter}
-                          idPrefix={`member-${member.id}`}
-                        />
-                      </div>
-                    </details>
-                  )
-                })}
+            {isLoading && (
+              <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-l3">
+                <div className="h-full w-1/3 animate-pulsein rounded-full bg-primary" />
               </div>
             )}
           </div>
+        </header>
+
+        {/* ── Guide view ── */}
+        {view === 'guide' ? (
+          <section className={`${CARD} p-8 animate-floatup`}>
+            <h2 className="font-display text-2xl font-semibold uppercase tracking-wide text-sand">
+              How to use this planner
+            </h2>
+            <div className="mt-8 grid gap-8 md:grid-cols-2">
+              <div className="space-y-6 text-sm text-sand/60">
+                {[
+                  ['1 — Set your region', 'Choose your country and state/region so the planner can load the correct public holidays. Holiday data comes from the CSV files in public/data/.'],
+                  ['2 — Pick your timeframe', 'Use "Consider Leave From" to restrict the search to dates on or after that day. Optionally set "Must Include" to force the plan to include a specific date.'],
+                  ['3 — Define your work week', 'Select which days are weekends for you. The planner treats those as automatic days off.'],
+                ].map(([title, body]) => (
+                  <div key={title}>
+                    <div className="mb-2 font-display text-sm font-semibold uppercase tracking-wide text-sand">{title}</div>
+                    <p>{body}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-6 text-sm text-sand/60">
+                {[
+                  ['4 — Family planning', 'Add family members and their leave balances. The planner uses the minimum balance to find a shared break that works for everyone.'],
+                  ['5 — Blackout dates', 'Add dates you cannot take off (e.g., deadlines). The optimizer will avoid any window that touches them.'],
+                  ['6 — Tradeoff curve', 'Use "Planned Leave Spend" to model spending fewer or more days than you have. The curve shows how total days off grows as you spend more leave.'],
+                ].map(([title, body]) => (
+                  <div key={title}>
+                    <div className="mb-2 font-display text-sm font-semibold uppercase tracking-wide text-sand">{title}</div>
+                    <p>{body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className={`mt-8 ${PANEL}`}>
+              <p className="text-xs text-sand/50">
+                Tip: Use "Copy shareable plan link" to send your exact setup to someone else.
+              </p>
+            </div>
+          </section>
+        ) : (
+          /* ── Planner view ── */
+          <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+
+            {/* ─ Inputs ─ */}
+            <div className={`${CARD} p-6`}>
+              <h2 className="font-display text-2xl font-semibold uppercase tracking-wide text-sand">
+                Inputs
+              </h2>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <label className="space-y-2">
+                  <span className={LABEL_CLS}>Year</span>
+                  <select
+                    value={year}
+                    onChange={(e) => setYear(Number(e.target.value))}
+                    className={INPUT_CLS}
+                  >
+                    {YEARS.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className={LABEL_CLS}>Consider Leave From</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={INPUT_CLS}
+                  />
+                </label>
+
+                <label className="space-y-2">
+                  <span className={LABEL_CLS}>Must Include (Optional)</span>
+                  <input
+                    type="date"
+                    value={mustInclude}
+                    onChange={(e) => setMustInclude(e.target.value)}
+                    className={INPUT_CLS}
+                  />
+                  <span className="text-[11px] text-sand/40">Ignored if before start date.</span>
+                </label>
+
+                <label className="space-y-2">
+                  <span className={LABEL_CLS}>Country</span>
+                  <select
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className={INPUT_CLS}
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className={LABEL_CLS}>State / Region</span>
+                  <select
+                    value={subdivision}
+                    onChange={(e) => setSubdivision(e.target.value)}
+                    disabled={countryInfo.subdivisions.length === 0}
+                    className={`${INPUT_CLS} disabled:opacity-40`}
+                  >
+                    {countryInfo.subdivisions.length === 0 && <option>National</option>}
+                    {countryInfo.subdivisions.map((s) => (
+                      <option key={s.code} value={s.code}>{s.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {/* Weekend */}
+              <div className={`mt-5 ${PANEL}`}>
+                <div className={LABEL_CLS}>Work Weekend</div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {WEEKDAYS.map((day) => {
+                    const checked = weekendDays.includes(day.value)
+                    return (
+                      <label key={day.value} className="flex cursor-pointer items-center gap-2 text-sm text-sand/70">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setWeekendDays((prev) => [...new Set([...prev, day.value])])
+                            } else {
+                              setWeekendDays((prev) => prev.filter((d) => d !== day.value))
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-l3 accent-primary focus:ring-primary/40"
+                        />
+                        {day.label}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Family members */}
+              <div className={`mt-4 ${PANEL}`}>
+                <div className={LABEL_CLS}>Family Members</div>
+                <div className="mt-4 space-y-3">
+                  {members.map((member) => (
+                    <div key={member.id} className="flex flex-wrap gap-2">
+                      <input
+                        type="text"
+                        value={member.name}
+                        onChange={(e) =>
+                          setMembers((prev) =>
+                            prev.map((m) => (m.id === member.id ? { ...m, name: e.target.value } : m))
+                          )
+                        }
+                        className="min-w-[140px] flex-1 rounded-xl border border-l3 bg-ink px-3 py-2 text-sm text-sand placeholder:text-sand/30 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        placeholder="Name"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={member.leaveDays}
+                        onChange={(e) =>
+                          setMembers((prev) =>
+                            prev.map((m) =>
+                              m.id === member.id ? { ...m, leaveDays: e.target.value } : m
+                            )
+                          )
+                        }
+                        className="w-24 rounded-xl border border-l3 bg-ink px-3 py-2 text-sm text-sand placeholder:text-sand/30 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        placeholder="Days"
+                      />
+                      {members.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setMembers((prev) => prev.filter((m) => m.id !== member.id))}
+                          className="rounded-xl border border-l3 bg-l2 px-3 py-2 text-xs text-sand/50 hover:text-sand/80 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs text-sand/40">
+                    Family budget: <span className="text-sand/70">{familyLeaveBudget} days</span> (min across members)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMembers((prev) => [
+                        ...prev,
+                        { id: Date.now(), name: `Member ${prev.length + 1}`, leaveDays: 10 },
+                      ])
+                    }
+                    className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] transition-colors ${PILL_IDLE}`}
+                  >
+                    + Add member
+                  </button>
+                </div>
+              </div>
+
+              {/* Planned leave spend */}
+              <div className={`mt-4 ${PANEL}`}>
+                <div className={LABEL_CLS}>Planned Leave Spend</div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    value={plannedLeaveSpend ?? ''}
+                    onChange={(e) => setPlannedLeaveSpend(Number(e.target.value))}
+                    className="w-32 rounded-xl border border-l3 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <span className="text-xs text-sand/40">
+                    Available: <span className="text-sand/70">{familyLeaveBudget} days</span>
+                  </span>
+                  {plannedLeaveSpend > familyLeaveBudget && (
+                    <span className="rounded-md border border-blood/30 bg-blood/10 px-2 py-0.5 text-xs text-blood">
+                      Over budget
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-[11px] text-sand/40">
+                  Model spending fewer or more days than your current balance.
+                </p>
+              </div>
+
+              {/* Blackout dates */}
+              <div className={`mt-4 ${PANEL}`}>
+                <div className={LABEL_CLS}>Blackout Dates</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {blackoutDates.length === 0 && (
+                    <span className="text-xs text-sand/40">No blackout dates.</span>
+                  )}
+                  {blackoutDates.map((date) => (
+                    <button
+                      type="button"
+                      key={date}
+                      onClick={() => setBlackoutDates((prev) => prev.filter((d) => d !== date))}
+                      className="rounded-lg border border-blood/20 bg-blood/10 px-3 py-1 text-xs text-blood/80 hover:border-blood/40 transition-colors"
+                    >
+                      {date} ×
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <input
+                    type="date"
+                    value={blackoutInput}
+                    onChange={(e) => setBlackoutInput(e.target.value)}
+                    className="w-full rounded-xl border border-l3 bg-ink px-4 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!blackoutInput) return
+                      setBlackoutDates((prev) => [...new Set([...prev, blackoutInput])])
+                      setBlackoutInput('')
+                    }}
+                    className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] transition-colors ${PILL_IDLE}`}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={!canProceed || isLoading}
+                onClick={() => handleCompute(selectedIndex)}
+                className="mt-6 w-full rounded-xl bg-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.25em] text-ink shadow-glow transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isLoading ? 'Calculating…' : 'Find Best Window'}
+              </button>
+            </div>
+
+            {/* ─ Results ─ */}
+            <div className="space-y-5">
+
+              {/* Optimal window */}
+              <div className={`${CARD} p-6`}>
+                <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
+                  Optimal Window
+                </h3>
+                {result ? (
+                  <div className="mt-5 space-y-4">
+                    <div className="font-display text-5xl font-semibold text-primary">
+                      {result.length}
+                      <span className="ml-2 text-2xl font-medium text-primary/70">days off</span>
+                    </div>
+
+                    <div className={`${PANEL} space-y-2 text-sm`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sand/50">Leave used (per person)</span>
+                        <span className="font-medium text-sand">{result.leaveUsed} / {plannedLeaveSpend ?? familyLeaveBudget}</span>
+                      </div>
+                      {result.length > 0 ? (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sand/50">Window</span>
+                          <span className="font-mono text-xs text-sand/80">
+                            {result.windowDates[0]} → {result.windowDates.at(-1)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-sand/50">No valid window found from the selected start date.</div>
+                      )}
+                      <div className="flex gap-4 pt-1 text-xs text-sand/50">
+                        <span>Weekends: <span className="text-sand/70">{counts.weekends}</span></span>
+                        <span>Holidays: <span className="text-sand/70">{counts.holidays}</span></span>
+                        <span>Leave: <span className="text-sand/70">{counts.leave}</span></span>
+                      </div>
+                    </div>
+
+                    <div className={PANEL}>
+                      <div className={`${LABEL_CLS} mb-2`}>Leave dates</div>
+                      <p className="font-mono text-[11px] leading-relaxed text-sand/60">
+                        {result.leaveDates.length ? result.leaveDates.join(', ') : 'No leave days required'}
+                      </p>
+                    </div>
+
+                    <div className={PANEL}>
+                      <div className={`${LABEL_CLS} mb-3`}>Per-member plan</div>
+                      <div className="space-y-2">
+                        {perMemberPlan.map((m) => (
+                          <div key={m.id} className="flex items-center justify-between text-sm">
+                            <span className="text-sand/70">{m.name}</span>
+                            <span className={`font-mono text-xs ${m.remaining < 0 ? 'text-blood' : 'text-sand/80'}`}>
+                              {m.used} used · {m.remaining} left
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={!canExport}
+                        onClick={handleExportIcs}
+                        className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] transition-colors disabled:opacity-40 ${PILL_IDLE}`}
+                      >
+                        Download .ics
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canExport}
+                        onClick={handlePrint}
+                        className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] transition-colors disabled:opacity-40 ${PILL_IDLE}`}
+                      >
+                        Print summary
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-5 text-sm text-sand/50">Enter your inputs to see the optimal break.</p>
+                )}
+              </div>
+
+              {/* Tradeoff curve */}
+              <div className={`${CARD} p-6`}>
+                <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
+                  Leave Tradeoff Curve
+                </h3>
+                <p className="mt-1 text-xs text-sand/50">
+                  Days off vs leave used (0 → {curveSummary.maxLeave}). Click a suggestion to apply it.
+                </p>
+                <div className={`mt-4 ${PANEL} p-4`}>
+                  {curvePoints.length ? (
+                    <CurveChart points={curvePoints} suggestions={curveSuggestions} />
+                  ) : (
+                    <div className="py-4 text-center text-xs text-sand/40">Run the planner to see the curve.</div>
+                  )}
+                </div>
+                {tradeoffInsights.bestJumps.length ? (
+                  <div className={`mt-4 ${PANEL}`}>
+                    <div className={`${LABEL_CLS} mb-2`}>Best marginal gains</div>
+                    <div className="flex flex-wrap gap-3 text-xs text-sand/60">
+                      {tradeoffInsights.bestJumps.map((j) => (
+                        <span key={`${j.from}-${j.to}`} className="font-mono">
+                          {j.from}→{j.to} leave: <span className="text-primary">+{j.gain}d</span>
+                        </span>
+                      ))}
+                    </div>
+                    {tradeoffInsights.diminishing ? (
+                      <p className="mt-2 text-[11px] text-sand/40">
+                        Diminishing returns around {tradeoffInsights.diminishing.to} leave (+{tradeoffInsights.diminishing.gain} day).
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {curveSuggestions.length ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className={`${LABEL_CLS} self-center`}>Suggestions</span>
+                    {curveSuggestions.map((s) => (
+                      <button
+                        type="button"
+                        key={s.leave}
+                        onClick={() => {
+                          setPlannedLeaveSpend(s.leave)
+                          handleCompute(0, s.leave)
+                        }}
+                        className={`rounded-lg border px-3 py-1 text-xs transition-colors ${PILL_IDLE}`}
+                      >
+                        {s.leave} leave → {s.daysOff} off
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Top options */}
+              <div className={`${CARD} p-6`}>
+                <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
+                  Top Options
+                </h3>
+                {topWindows.length ? (
+                  <div className="mt-4 space-y-2">
+                    {topWindows.map((win, idx) => (
+                      <button
+                        type="button"
+                        key={`${win.start}-${win.end}`}
+                        onClick={() => {
+                          setSelectedIndex(idx)
+                          setResult(win)
+                        }}
+                        className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                          idx === selectedIndex ? PILL_ACTIVE : PILL_IDLE
+                        }`}
+                      >
+                        <div className="text-sm font-semibold">
+                          Option {idx + 1} — <span className={idx === selectedIndex ? 'text-primary' : ''}>{win.length} days off</span>
+                        </div>
+                        <div className="mt-0.5 font-mono text-[11px] text-sand/50">
+                          {win.windowDates[0]} → {win.windowDates.at(-1)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-sand/50">No options computed yet.</p>
+                )}
+              </div>
+
+              {/* Multiple best windows (expandable) */}
+              <details className={`${CARD} p-6`}>
+                <summary className="flex cursor-pointer list-none items-center justify-between">
+                  <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
+                    Multiple Best Windows
+                  </h3>
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-sand/40">Expand</span>
+                </summary>
+                {curveSuggestions.length ? (
+                  <div className="mt-5 space-y-4">
+                    {curveSuggestions.map((s) => (
+                      <div key={s.leave} className={PANEL}>
+                        <div className={`${LABEL_CLS} mb-3`}>
+                          {s.leave} leave → {s.daysOff} off
+                        </div>
+                        <div className="space-y-2">
+                          {(suggestionWindows[s.leave] || []).map((win, idx) => (
+                            <button
+                              key={`${s.leave}-${win.start}-${idx}`}
+                              type="button"
+                              onClick={() => {
+                                setPlannedLeaveSpend(s.leave)
+                                setSelectedIndex(0)
+                                setResult(win)
+                              }}
+                              className="w-full rounded-lg border border-l3 bg-ink/60 px-3 py-2 text-left text-xs text-sand/60 hover:border-primary/30 hover:text-sand/90 transition-colors"
+                            >
+                              Option {idx + 1}: {win.windowDates[0]} → {win.windowDates.at(-1)} ({win.length} days)
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-sand/50">Run the planner to see grouped options.</p>
+                )}
+              </details>
+
+              {/* Data status + share */}
+              <div className={`${CARD} p-6`}>
+                <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
+                  Data Status
+                </h3>
+                <ul className="mt-4 space-y-2 text-sm">
+                  {[
+                    ['Country', countryInfo.name],
+                    ['State', countryInfo.subdivisions.length ? subdivision : 'National'],
+                    ['File', `/public/data/holidays-${country}-${year}.csv`],
+                    ['Loaded', `${holidays.length} rows`],
+                    ['Members', String(members.length)],
+                  ].map(([k, v]) => (
+                    <li key={k} className="flex items-center justify-between">
+                      <span className="text-sand/40">{k}</span>
+                      <span className="font-mono text-xs text-sand/70">{v}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className={`mt-5 w-full rounded-xl border py-3 text-xs font-medium uppercase tracking-[0.2em] transition-colors ${
+                    copied ? 'border-primary/50 bg-primary/10 text-primary' : PILL_IDLE
+                  }`}
+                >
+                  {copied ? 'Link copied!' : 'Copy shareable plan link'}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Calendar ── */}
+        {view === 'planner' && (
+          <section className={`${CARD} p-6`}>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h2 className="font-display text-2xl font-semibold uppercase tracking-wide text-sand">
+                Calendar View
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'Holiday', color: 'border-sky/40 bg-sky/10 text-sky' },
+                  { label: 'Leave', color: 'border-primary/60 bg-primary/20 text-primary' },
+                  { label: 'Weekend', color: 'border-l3 bg-l2 text-sand/60' },
+                  { label: 'Blackout', color: 'border-blood/40 bg-blood/10 text-blood' },
+                ].map(({ label, color }) => (
+                  <span key={label} className={`rounded-lg border px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] ${color}`}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className={`${LABEL_CLS} self-center`}>Filter</span>
+              {['all', 'window', 'off'].map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setCalendarFilter(mode)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.2em] transition-colors ${
+                    calendarFilter === mode ? PILL_ACTIVE : PILL_IDLE
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className={`${LABEL_CLS} self-center`}>View</span>
+              {['combined', 'per-member'].map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setCalendarViewMode(mode)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.2em] transition-colors ${
+                    calendarViewMode === mode ? PILL_ACTIVE : PILL_IDLE
+                  }`}
+                >
+                  {mode === 'combined' ? 'Combined' : 'Per member'}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-8">
+              {calendarViewMode === 'combined' ? (
+                <Calendar year={year} dayMeta={dayMeta} filterMode={calendarFilter} idPrefix="main" />
+              ) : (
+                <div className="space-y-4">
+                  {members.map((member) => {
+                    const balance = Number(member.leaveDays) || 0
+                    const used = result?.leaveUsed ?? 0
+                    const remaining = balance - used
+                    return (
+                      <details
+                        key={member.id}
+                        className={PANEL}
+                      >
+                        <summary className="flex cursor-pointer list-none items-center justify-between text-sm">
+                          <span className="font-medium text-sand/80">{member.name}</span>
+                          <span className={`font-mono text-xs ${remaining < 0 ? 'text-blood' : 'text-sand/50'}`}>
+                            {used} used · {remaining} left
+                          </span>
+                        </summary>
+                        <div className="mt-4">
+                          <Calendar
+                            year={year}
+                            dayMeta={dayMeta}
+                            filterMode={calendarFilter}
+                            idPrefix={`member-${member.id}`}
+                          />
+                        </div>
+                      </details>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </section>
         )}
       </div>
+
+      {/* ── Print root ── */}
       <div id="print-root" className="print-root">
         <div className="print-card">
           <h1>Leave Plan Summary</h1>
           <p>
             {countryInfo.name}
-            {countryInfo.subdivisions.length ? ` • ${subdivision}` : ''} • {year}
+            {countryInfo.subdivisions.length ? ` · ${subdivision}` : ''} · {year}
           </p>
           {result ? (
             <>
@@ -1074,7 +1142,7 @@ const App = () => {
               <ul>
                 {perMemberPlan.map((m) => (
                   <li key={m.id}>
-                    {m.name}: {m.used} used • {m.remaining} left
+                    {m.name}: {m.used} used · {m.remaining} left
                   </li>
                 ))}
               </ul>
@@ -1112,45 +1180,43 @@ const CurveChart = ({ points, suggestions = [] }) => {
   const ticks = [0, Math.round(maxX / 2), maxX]
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full text-sand">
-      <rect x="0" y="0" width={width} height={height} rx="16" fill="rgba(255,255,255,0.02)" />
-      <path d={stepPath} fill="none" stroke="#d7ff3f" strokeWidth="3" />
-      {points.map((p) => (
-        <circle
-          key={p.leave}
-          cx={scaleX(p.leave)}
-          cy={scaleY(p.daysOff)}
-          r="3.5"
-          fill="#66d1ff"
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
+      <rect x="0" y="0" width={width} height={height} rx="12" fill="rgba(255,255,255,0.01)" />
+      {/* Grid lines */}
+      {[0.25, 0.5, 0.75].map((t) => (
+        <line
+          key={t}
+          x1={padding}
+          y1={scaleY(maxY * t)}
+          x2={width - padding}
+          y2={scaleY(maxY * t)}
+          stroke="rgba(255,255,255,0.04)"
+          strokeWidth="1"
         />
+      ))}
+      {/* Step path with fill */}
+      <path
+        d={`${stepPath} L ${scaleX(points.at(-1).leave)} ${height - padding} L ${scaleX(0)} ${height - padding} Z`}
+        fill="rgba(0,189,125,0.06)"
+      />
+      <path d={stepPath} fill="none" stroke="#00BD7D" strokeWidth="2.5" strokeLinejoin="round" />
+      {points.map((p) => (
+        <circle key={p.leave} cx={scaleX(p.leave)} cy={scaleY(p.daysOff)} r="2.5" fill="#60B9F0" />
       ))}
       {suggestions.map((p) => (
         <g key={`s-${p.leave}`}>
-          <circle
-            cx={scaleX(p.leave)}
-            cy={scaleY(p.daysOff)}
-            r="6"
-            fill="rgba(255,63,110,0.35)"
-          />
-          <text
-            x={scaleX(p.leave)}
-            y={scaleY(p.daysOff) - 10}
-            textAnchor="middle"
-            fontSize="10"
-            fill="rgba(255,255,255,0.7)"
-          >
+          <circle cx={scaleX(p.leave)} cy={scaleY(p.daysOff)} r="5" fill="rgba(220,38,38,0.3)" />
+          <text x={scaleX(p.leave)} y={scaleY(p.daysOff) - 9} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.6)">
             {p.leave}/{p.daysOff}
           </text>
         </g>
       ))}
       {ticks.map((t) => (
-        <text key={t} x={scaleX(t)} y={height - 6} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.5)">
+        <text key={t} x={scaleX(t)} y={height - 6} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.35)">
           {t}
         </text>
       ))}
-      <text x={padding} y={14} fontSize="10" fill="rgba(255,255,255,0.5)">
-        Days off
-      </text>
+      <text x={padding} y={14} fontSize="9" fill="rgba(255,255,255,0.35)">Days off</text>
     </svg>
   )
 }
