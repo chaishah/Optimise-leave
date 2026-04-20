@@ -2,7 +2,7 @@ const Modal = ({ open, title, children, onConfirm, onCancel, confirmText = 'Conf
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 px-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-sand/30 px-6 backdrop-blur-sm">
       <div className="w-full max-w-lg animate-floatup rounded-2xl border border-l3 bg-l1 p-7 shadow-elevated">
         <h2 className="font-display text-2xl font-semibold uppercase tracking-wide text-primary">{title}</h2>
         <div className="mt-3 text-sm leading-relaxed text-sand/70">{children}</div>

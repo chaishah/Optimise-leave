@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 :root.theme-light {
@@ -11,18 +11,17 @@
 }
 
 :root.theme-light body {
-  filter: invert(1) hue-rotate(180deg);
   background:
-    radial-gradient(ellipse at 20% 0%, rgba(0, 189, 125, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 10%, rgba(96, 185, 240, 0.04) 0%, transparent 50%),
-    #f6f0e9;
+    radial-gradient(ellipse at 12% 0%, rgba(79, 70, 229, 0.08) 0%, transparent 48%),
+    radial-gradient(ellipse at 82% 4%, rgba(14, 165, 233, 0.08) 0%, transparent 42%),
+    linear-gradient(180deg, #fffaf2 0%, #f6efe4 100%);
 }
 
 body {
   background:
-    radial-gradient(ellipse at 15% 0%, rgba(0, 189, 125, 0.1) 0%, transparent 55%),
-    radial-gradient(ellipse at 85% 5%, rgba(96, 185, 240, 0.05) 0%, transparent 45%),
-    #0a0a0f;
+    radial-gradient(ellipse at 12% 0%, rgba(79, 70, 229, 0.08) 0%, transparent 48%),
+    radial-gradient(ellipse at 82% 4%, rgba(14, 165, 233, 0.08) 0%, transparent 42%),
+    linear-gradient(180deg, #fffaf2 0%, #f6efe4 100%);
   min-height: 100vh;
 }
 
@@ -32,8 +31,8 @@ body::before {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    linear-gradient(rgba(29, 38, 54, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29, 38, 54, 0.035) 1px, transparent 1px);
   background-size: 32px 32px;
   pointer-events: none;
   z-index: 0;
@@ -44,9 +43,31 @@ body::before {
   z-index: 1;
 }
 
+/* Native light-theme token fallbacks. These intentionally mirror Tailwind tokens
+   so stale dev-server CSS cannot leave the UI with dark-theme text colors. */
+.text-sand { color: #1d2636; }
+.text-sand\/30 { color: rgba(29, 38, 54, 0.3); }
+.text-sand\/35 { color: rgba(29, 38, 54, 0.35); }
+.text-sand\/40 { color: rgba(29, 38, 54, 0.4); }
+.text-sand\/45 { color: rgba(29, 38, 54, 0.45); }
+.text-sand\/50 { color: rgba(29, 38, 54, 0.5); }
+.text-sand\/60 { color: rgba(29, 38, 54, 0.6); }
+.text-sand\/70 { color: rgba(29, 38, 54, 0.7); }
+.text-sand\/80 { color: rgba(29, 38, 54, 0.8); }
+.text-sand\/90 { color: rgba(29, 38, 54, 0.9); }
+.text-ink { color: #fffaf2; }
+.bg-ink { background-color: #fffaf2; }
+.bg-l1 { background-color: #ffffff; }
+.bg-l2 { background-color: #f4f1ea; }
+.bg-l2\/40 { background-color: rgba(244, 241, 234, 0.4); }
+.bg-l3 { background-color: #d8d0c4; }
+.border-l3 { border-color: #d8d0c4; }
+.ring-offset-ink { --tw-ring-offset-color: #fffaf2; }
+.placeholder\:text-sand\/30::placeholder { color: rgba(29, 38, 54, 0.3); }
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: #00BD7D #111118;
+  scrollbar-color: #4F46E5 #f4f1ea;
 }
 
 *::-webkit-scrollbar {
@@ -54,11 +75,11 @@ body::before {
 }
 
 *::-webkit-scrollbar-track {
-  background: #111118;
+  background: #f4f1ea;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #00BD7D;
+  background: #4F46E5;
   border-radius: 999px;
 }
 

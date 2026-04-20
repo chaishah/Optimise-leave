@@ -4,17 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#0a0a0f',
-        sand: '#f0ede8',
+        ink: '#fffaf2',
+        sand: '#1d2636',
         acid: '#6366F1',
-        primary: '#6366F1',
-        blood: '#DC2626',
-        sky: '#60B9F0',
-        moss: '#16A34A',
-        warning: '#D97706',
-        l1: '#111118',
-        l2: '#0d0d14',
-        l3: '#1e1e2a',
+        primary: '#4F46E5',
+        blood: '#B91C1C',
+        sky: '#0EA5E9',
+        moss: '#15803D',
+        warning: '#B45309',
+        l1: '#ffffff',
+        l2: '#f4f1ea',
+        l3: '#d8d0c4',
       },
       fontFamily: {
         display: ['Oswald', 'ui-sans-serif', 'system-ui', 'sans-serif'],
@@ -22,10 +22,10 @@ export default {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
-        loud: '0 20px 60px rgba(0,0,0,0.5)',
-        card: '0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
-        elevated: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-        glow: '0 0 24px rgba(99,102,241,0.3), 0 4px 12px rgba(0,0,0,0.3)',
+        loud: '0 24px 70px rgba(75, 70, 59, 0.18)',
+        card: '0 2px 10px rgba(75, 70, 59, 0.08), inset 0 1px 0 rgba(255,255,255,0.75)',
+        elevated: '0 12px 36px rgba(75, 70, 59, 0.14), inset 0 1px 0 rgba(255,255,255,0.8)',
+        glow: '0 12px 26px rgba(79,70,229,0.22), 0 4px 12px rgba(75,70,59,0.12)',
         ring: '0 0 0 3px rgba(99,102,241,0.4)',
       },
       keyframes: {

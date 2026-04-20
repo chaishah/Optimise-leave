@@ -94,7 +94,6 @@ const App = () => {
   const [useUnpaidLeave, setUseUnpaidLeave] = useState(false)
   const [unpaidLeaveDays, setUnpaidLeaveDays] = useState(0)
   const [view, setView] = useState('planner')
-  const [theme, setTheme] = useState('dark')
   const [calendarViewMode, setCalendarViewMode] = useState('combined')
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
@@ -126,15 +125,6 @@ const App = () => {
       unpaidUsed: Math.max(0, leaveDates.length - paidCount),
     }
   }, [paidLeaveBudget, result])
-
-  useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'light') {
-      root.classList.add('theme-light')
-    } else {
-      root.classList.remove('theme-light')
-    }
-  }, [theme])
 
   useEffect(() => {
     if (!countryInfo) return
@@ -360,8 +350,6 @@ const App = () => {
     if (!Number.isNaN(parsedSpend) && parsedSpend >= 0) setPlannedLeaveSpend(parsedSpend)
     if (parsedUnpaid === '1') setUseUnpaidLeave(true)
     if (!Number.isNaN(parsedUnpaidDays) && parsedUnpaidDays >= 0) setUnpaidLeaveDays(parsedUnpaidDays)
-    const parsedTheme = params.get('theme')
-    if (parsedTheme === 'light' || parsedTheme === 'dark') setTheme(parsedTheme)
     const parsedCalView = params.get('calview')
     if (parsedCalView === 'combined' || parsedCalView === 'per-member') {
       setCalendarViewMode(parsedCalView)
@@ -406,7 +394,6 @@ const App = () => {
       params.set('unpaid', '1')
       params.set('unpaidDays', String(unpaidLeaveBudget))
     }
-    if (theme) params.set('theme', theme)
     if (calendarViewMode) params.set('calview', calendarViewMode)
     const basePath = view === 'guide' ? '/guide' : '/'
     const newUrl = `${basePath}?${params.toString()}`
@@ -426,7 +413,6 @@ const App = () => {
     useUnpaidLeave,
     unpaidLeaveBudget,
     view,
-    theme,
     calendarViewMode,
   ])
 
@@ -585,13 +571,6 @@ const App = () => {
               >
                 Reset
               </button>
-              <button
-                type="button"
-                onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                className={`rounded-xl border px-4 py-2 text-xs font-medium uppercase tracking-[0.25em] transition-colors ${PILL_IDLE}`}
-              >
-                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-              </button>
             </div>
           </div>
 
@@ -620,9 +599,9 @@ const App = () => {
             <div className="mt-8 grid gap-8 md:grid-cols-2">
               <div className="space-y-6 text-sm text-sand/60">
                 {[
-                  ['1 — Set your region', 'Choose your country and state/region so the planner can load the correct public holidays. Holiday data comes from the CSV files in public/data/.'],
-                  ['2 — Pick your timeframe', 'Use "Consider Leave From" to restrict the search to dates on or after that day. Optionally set "Must Include" to force the plan to include a specific date.'],
-                  ['3 — Define your work week', 'Select which days are weekends for you. The planner treats those as automatic days off.'],
+                  ['1 - Set your region', 'Choose the year, country, and state or region. The planner loads holidays for the selected year and the following year, so a late-December break can continue into January.'],
+                  ['2 - Pick your start date', '"Consider Leave From" defaults to today and limits the search to dates on or after that day. Use "Must Include" when the break must cover a specific date.'],
+                  ['3 - Set leave capacity', 'Enter paid leave days first. Turn on unpaid leave only when you are willing to add extra unpaid days; paid leave is used before unpaid leave.'],
                 ].map(([title, body]) => (
                   <div key={title}>
                     <div className="mb-2 font-display text-sm font-semibold uppercase tracking-wide text-sand">{title}</div>
@@ -632,9 +611,9 @@ const App = () => {
               </div>
               <div className="space-y-6 text-sm text-sand/60">
                 {[
-                  ['4 — Family planning', 'Add family members and their leave balances. The planner uses the minimum balance to find a shared break that works for everyone.'],
-                  ['5 — Blackout dates', 'Add dates you cannot take off (e.g., deadlines). The optimizer will avoid any window that touches them.'],
-                  ['6 — Tradeoff curve', 'Use "Leave Spend" to model paid leave and optional unpaid leave. The curve shows how total days off grows as you spend more leave.'],
+                  ['4 - Use advanced options', 'Open Work Weekend, Family Members, or Blackout Dates only when needed. Family planning uses the lowest paid-leave balance across members.'],
+                  ['5 - Compare the result', 'After calculating, Top Options shows alternative windows. The main result separates paid leave, unpaid leave, weekends, and public holidays.'],
+                  ['6 - Review calendar and analysis', 'The calendar focuses on the month or months in the selected window, including cross-year windows. Expand Tradeoff Curve or Multiple Best Windows for deeper comparisons.'],
                 ].map(([title, body]) => (
                   <div key={title}>
                     <div className="mb-2 font-display text-sm font-semibold uppercase tracking-wide text-sand">{title}</div>
