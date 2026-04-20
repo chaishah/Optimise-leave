@@ -47,6 +47,14 @@ const WEEKDAYS = [
 
 const DEFAULT_MEMBERS = [{ id: 1, name: 'You', leaveDays: 12 }]
 
+const getTodayISODate = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 /* ─── shared class fragments ─── */
 const CARD = 'rounded-2xl border border-l3 bg-l1 shadow-elevated'
 const PANEL = 'rounded-xl border border-l3 bg-l2 p-5'
@@ -64,7 +72,7 @@ const App = () => {
   const [result, setResult] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState('Ready when you are.')
-  const [startDate, setStartDate] = useState('2026-01-01')
+  const [startDate, setStartDate] = useState(() => getTodayISODate())
   const [mustInclude, setMustInclude] = useState('')
   const [weekendDays, setWeekendDays] = useState([6, 0])
   const [copied, setCopied] = useState(false)
@@ -374,7 +382,7 @@ const App = () => {
     setResult(null)
     setIsLoading(false)
     setStatus('Ready when you are.')
-    setStartDate('2026-01-01')
+    setStartDate(getTodayISODate())
     setMustInclude('')
     setWeekendDays([6, 0])
     setCopied(false)
@@ -571,7 +579,7 @@ const App = () => {
                   <span className={LABEL_CLS}>Year</span>
                   <select
                     value={year}
-                    onChange={(e) => { const y = Number(e.target.value); setYear(y); setStartDate(`${y}-01-01`) }}
+                    onChange={(e) => { const y = Number(e.target.value); setYear(y); setStartDate(getTodayISODate()) }}
                     className={INPUT_CLS}
                   >
                     {YEARS.map((y) => (
