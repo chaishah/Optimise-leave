@@ -55,6 +55,11 @@ const getTodayISODate = () => {
   return `${year}-${month}-${day}`
 }
 
+const toNonNegativeNumber = (value, fallback = 0) => {
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : fallback
+}
+
 /* ─── shared class fragments ─── */
 const CARD = 'rounded-2xl border border-l3 bg-l1 shadow-elevated'
 const PANEL = 'rounded-xl border border-l3 bg-l2 p-5'
@@ -86,11 +91,40 @@ const App = () => {
   const [curveSuggestions, setCurveSuggestions] = useState([])
   const [suggestionWindows, setSuggestionWindows] = useState({})
   const [plannedLeaveSpend, setPlannedLeaveSpend] = useState(null)
+  const [useUnpaidLeave, setUseUnpaidLeave] = useState(false)
+  const [unpaidLeaveDays, setUnpaidLeaveDays] = useState(0)
   const [view, setView] = useState('planner')
   const [theme, setTheme] = useState('dark')
   const [calendarViewMode, setCalendarViewMode] = useState('combined')
 
   const countryInfo = COUNTRIES.find((c) => c.code === country)
+
+  const familyLeaveBudget = useMemo(() => {
+    if (!members.length) return 0
+    return Math.min(...members.map((m) => toNonNegativeNumber(m.leaveDays)))
+  }, [members])
+
+  const paidLeaveBudget = useMemo(() => {
+    if (plannedLeaveSpend === null || plannedLeaveSpend === '') return familyLeaveBudget
+    return toNonNegativeNumber(plannedLeaveSpend)
+  }, [familyLeaveBudget, plannedLeaveSpend])
+
+  const unpaidLeaveBudget = useMemo(() => {
+    return useUnpaidLeave ? toNonNegativeNumber(unpaidLeaveDays) : 0
+  }, [unpaidLeaveDays, useUnpaidLeave])
+
+  const totalLeaveBudget = paidLeaveBudget + unpaidLeaveBudget
+
+  const leaveBreakdown = useMemo(() => {
+    const leaveDates = result?.leaveDates || []
+    const paidCount = Math.min(leaveDates.length, paidLeaveBudget)
+    return {
+      paidDates: leaveDates.slice(0, paidCount),
+      unpaidDates: leaveDates.slice(paidCount),
+      paidUsed: paidCount,
+      unpaidUsed: Math.max(0, leaveDates.length - paidCount),
+    }
+  }, [paidLeaveBudget, result])
 
   useEffect(() => {
     const root = document.documentElement
@@ -117,6 +151,7 @@ const App = () => {
     const days = buildDayMap(year, holidays, weekendDays)
     const blackoutSet = new Set(blackoutDates)
     const leaveSet = new Set(result?.leaveDates || [])
+    const unpaidLeaveSet = new Set(leaveBreakdown.unpaidDates)
     const windowSet = new Set(result?.windowDates || [])
     const meta = {}
     days.forEach((day) => {
@@ -124,13 +159,14 @@ const App = () => {
         isWeekend: day.weekend,
         isHoliday: Boolean(day.holiday),
         isLeave: leaveSet.has(day.iso),
+        isUnpaidLeave: unpaidLeaveSet.has(day.iso),
         isWindow: windowSet.has(day.iso),
         isBlocked: blackoutSet.has(day.iso),
         label: day.holiday?.name || '',
       }
     })
     return meta
-  }, [year, holidays, result, weekendDays, blackoutDates])
+  }, [year, holidays, result, weekendDays, blackoutDates, leaveBreakdown])
 
   const handleCompute = async (preferredIndex = 0, spendOverride) => {
     setIsLoading(true)
@@ -149,9 +185,9 @@ const App = () => {
     const daysWithBlocks = days.map((d) => ({ ...d, isBlocked: blackoutSet.has(d.iso) }))
     const filteredWithBlocks = daysWithBlocks.filter((d) => d.iso >= startDate)
     const includeDate = mustInclude && mustInclude >= startDate ? mustInclude : ''
-    const maxBudget = Math.min(...members.map((m) => Number(m.leaveDays) || 0))
-    const spend = typeof spendOverride === 'number' ? spendOverride : plannedLeaveSpend
-    const leaveBudget = Math.max(0, Number.isFinite(spend) ? spend : maxBudget)
+    const maxBudget = familyLeaveBudget
+    const leaveBudget =
+      typeof spendOverride === 'number' ? toNonNegativeNumber(spendOverride) : totalLeaveBudget
     const windows = findTopWindows(filteredWithBlocks, Number(leaveBudget), includeDate, 5)
     setTopWindows(windows)
     const nextIndex = windows[preferredIndex] ? preferredIndex : 0
@@ -176,11 +212,6 @@ const App = () => {
     setIsLoading(false)
   }
 
-  const familyLeaveBudget = useMemo(() => {
-    if (!members.length) return 0
-    return Math.min(...members.map((m) => Number(m.leaveDays) || 0))
-  }, [members])
-
   useEffect(() => {
     setPlannedLeaveSpend((prev) => {
       if (prev === null) return familyLeaveBudget
@@ -188,40 +219,42 @@ const App = () => {
     })
   }, [familyLeaveBudget])
 
-  const canProceed = familyLeaveBudget > 0 && startDate
+  const canProceed = totalLeaveBudget > 0 && startDate
 
   const counts = useMemo(() => {
     if (!result || result.length === 0) {
-      return { weekends: 0, holidays: 0, leave: 0 }
+      return { weekends: 0, holidays: 0, leave: 0, unpaid: 0 }
     }
     const windowSet = new Set(result.windowDates)
     let weekends = 0
     let holidaysCount = 0
     let leave = 0
+    let unpaid = 0
     Object.entries(dayMeta).forEach(([iso, meta]) => {
       if (!windowSet.has(iso)) return
       if (meta.isWeekend) weekends += 1
       if (meta.isHoliday) holidaysCount += 1
       if (meta.isLeave) leave += 1
+      if (meta.isUnpaidLeave) unpaid += 1
     })
-    return { weekends, holidays: holidaysCount, leave }
+    return { weekends, holidays: holidaysCount, leave, unpaid }
   }, [dayMeta, result])
 
   const canExport = Boolean(result && result.length > 0)
 
   const perMemberPlan = useMemo(() => {
-    const used = result?.leaveUsed ?? 0
     return members.map((m) => {
-      const balance = Number(m.leaveDays) || 0
+      const balance = toNonNegativeNumber(m.leaveDays)
       return {
         id: m.id,
         name: m.name,
         balance,
-        used,
-        remaining: balance - used,
+        used: leaveBreakdown.paidUsed,
+        unpaid: leaveBreakdown.unpaidUsed,
+        remaining: balance - leaveBreakdown.paidUsed,
       }
     })
-  }, [members, result])
+  }, [leaveBreakdown, members])
 
   const curveSummary = useMemo(() => {
     if (!curvePoints.length) return { maxLeave: 0, maxDays: 0 }
@@ -257,6 +290,8 @@ const App = () => {
 
     const parsedOption = Number(params.get('option'))
     const parsedSpend = Number(params.get('spend'))
+    const parsedUnpaid = params.get('unpaid')
+    const parsedUnpaidDays = Number(params.get('unpaidDays'))
     if (!Number.isNaN(parsedYear) && YEARS.includes(parsedYear)) setYear(parsedYear)
     if (parsedStart) setStartDate(parsedStart)
     if (parsedInclude) setMustInclude(parsedInclude)
@@ -299,6 +334,8 @@ const App = () => {
     if (parsedFilter) setCalendarFilter(parsedFilter)
     if (!Number.isNaN(parsedOption) && parsedOption >= 0) setSelectedIndex(parsedOption)
     if (!Number.isNaN(parsedSpend) && parsedSpend >= 0) setPlannedLeaveSpend(parsedSpend)
+    if (parsedUnpaid === '1') setUseUnpaidLeave(true)
+    if (!Number.isNaN(parsedUnpaidDays) && parsedUnpaidDays >= 0) setUnpaidLeaveDays(parsedUnpaidDays)
     const parsedTheme = params.get('theme')
     if (parsedTheme === 'light' || parsedTheme === 'dark') setTheme(parsedTheme)
     const parsedCalView = params.get('calview')
@@ -341,6 +378,10 @@ const App = () => {
     if (calendarFilter) params.set('filter', calendarFilter)
     if (selectedIndex) params.set('option', String(selectedIndex))
     if (plannedLeaveSpend !== null) params.set('spend', String(plannedLeaveSpend))
+    if (useUnpaidLeave) {
+      params.set('unpaid', '1')
+      params.set('unpaidDays', String(unpaidLeaveBudget))
+    }
     if (theme) params.set('theme', theme)
     if (calendarViewMode) params.set('calview', calendarViewMode)
     const basePath = view === 'guide' ? '/guide' : '/'
@@ -358,6 +399,8 @@ const App = () => {
     calendarFilter,
     selectedIndex,
     plannedLeaveSpend,
+    useUnpaidLeave,
+    unpaidLeaveBudget,
     view,
     theme,
     calendarViewMode,
@@ -395,6 +438,8 @@ const App = () => {
     setCurvePoints([])
     setCurveSuggestions([])
     setPlannedLeaveSpend(null)
+    setUseUnpaidLeave(false)
+    setUnpaidLeaveDays(0)
     setView('planner')
     setCalendarViewMode('combined')
     window.history.pushState(null, '', '/')
@@ -430,13 +475,18 @@ const App = () => {
     lines.push('DESCRIPTION:Optimised leave window.')
     lines.push('END:VEVENT')
 
-    result.leaveDates.forEach((date, idx) => {
+    const leaveEvents = [
+      ...leaveBreakdown.paidDates.map((date) => ({ date, summary: 'Paid leave' })),
+      ...leaveBreakdown.unpaidDates.map((date) => ({ date, summary: 'Unpaid leave' })),
+    ]
+
+    leaveEvents.forEach(({ date, summary }, idx) => {
       lines.push('BEGIN:VEVENT')
       lines.push(`UID:leave-${date}-${idx}@optimise-leave`)
       lines.push(`DTSTAMP:${stamp}`)
       lines.push(`DTSTART;VALUE=DATE:${toIcsDate(date)}`)
       lines.push(`DTEND;VALUE=DATE:${toIcsDate(addDays(date, 1))}`)
-      lines.push('SUMMARY:Leave')
+      lines.push(`SUMMARY:${summary}`)
       lines.push('DESCRIPTION:Planned leave day.')
       lines.push('END:VEVENT')
     })
@@ -458,21 +508,32 @@ const App = () => {
     window.print()
   }
 
+  const applySuggestedLeaveSpend = (leaveDays) => {
+    if (!useUnpaidLeave) {
+      setPlannedLeaveSpend(leaveDays)
+      return
+    }
+
+    const nextPaid = Math.min(leaveDays, familyLeaveBudget)
+    setPlannedLeaveSpend(nextPaid)
+    setUnpaidLeaveDays(Math.max(0, leaveDays - nextPaid))
+  }
+
   return (
-    <div className="min-h-screen px-4 py-10 text-sand">
-      <div className="mx-auto max-w-6xl space-y-8 no-print">
+    <div className="min-h-screen px-4 py-6 text-sand sm:px-6 lg:px-8 lg:py-10">
+      <div className="mx-auto max-w-[88rem] space-y-6 no-print lg:space-y-8">
 
         {/* ── Header ── */}
-        <header className="grid gap-6 md:grid-cols-[1.3fr_1fr] md:items-start">
+        <header className="grid gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)] md:items-start">
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2.5 rounded-full border border-primary/20 bg-primary/[0.08] px-4 py-1.5">
               <span className="size-1.5 rounded-full bg-primary animate-pulsein" />
               <span className="text-[10px] font-medium uppercase tracking-[0.3em] text-primary">Leave Optimizer</span>
             </div>
-            <h1 className="font-display text-4xl font-semibold uppercase leading-tight tracking-wide text-sand md:text-5xl">
+            <h1 className="font-display text-4xl font-semibold uppercase leading-tight tracking-wide text-sand sm:text-5xl lg:text-6xl">
               Plan your leave<br />around public holidays.
             </h1>
-            <p className="max-w-md text-sm leading-relaxed text-sand/60">
+            <p className="max-w-2xl text-sm leading-relaxed text-sand/60 sm:text-base">
               Enter your balance, location, and start date. The planner finds the longest continuous break
               using weekends and public holidays.
             </p>
@@ -549,7 +610,7 @@ const App = () => {
                 {[
                   ['4 — Family planning', 'Add family members and their leave balances. The planner uses the minimum balance to find a shared break that works for everyone.'],
                   ['5 — Blackout dates', 'Add dates you cannot take off (e.g., deadlines). The optimizer will avoid any window that touches them.'],
-                  ['6 — Tradeoff curve', 'Use "Planned Leave Spend" to model spending fewer or more days than you have. The curve shows how total days off grows as you spend more leave.'],
+                  ['6 — Tradeoff curve', 'Use "Leave Spend" to model paid leave and optional unpaid leave. The curve shows how total days off grows as you spend more leave.'],
                 ].map(([title, body]) => (
                   <div key={title}>
                     <div className="mb-2 font-display text-sm font-semibold uppercase tracking-wide text-sand">{title}</div>
@@ -566,15 +627,24 @@ const App = () => {
           </section>
         ) : (
           /* ── Planner view ── */
-          <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+          <section className="grid gap-5 lg:grid-cols-[minmax(320px,0.78fr)_minmax(0,1.42fr)] lg:items-start xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.58fr)]">
 
             {/* ─ Inputs ─ */}
-            <div className={`${CARD} p-6`}>
-              <h2 className="font-display text-2xl font-semibold uppercase tracking-wide text-sand">
-                Inputs
-              </h2>
+            <div className={`${CARD} p-5 sm:p-6 lg:sticky lg:top-6`}>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className={LABEL_CLS}>Planner setup</div>
+                  <h2 className="mt-1 font-display text-2xl font-semibold uppercase tracking-wide text-sand">
+                    Inputs
+                  </h2>
+                </div>
+                <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-right">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-primary/70">Capacity</div>
+                  <div className="font-display text-xl text-primary">{totalLeaveBudget} days</div>
+                </div>
+              </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:col-start-1 lg:row-start-2 lg:mt-0 lg:grid-cols-1 xl:grid-cols-2">
                 <label className="space-y-2">
                   <span className={LABEL_CLS}>Year</span>
                   <select
@@ -729,26 +799,53 @@ const App = () => {
 
               {/* Planned leave spend */}
               <div className={`mt-4 ${PANEL}`}>
-                <div className={LABEL_CLS}>Planned Leave Spend</div>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <input
-                    type="number"
-                    min="0"
-                    value={plannedLeaveSpend ?? ''}
-                    onChange={(e) => setPlannedLeaveSpend(Number(e.target.value))}
-                    className="w-32 rounded-xl border border-l3 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                  <span className="text-xs text-sand/40">
-                    Available: <span className="text-sand/70">{familyLeaveBudget} days</span>
-                  </span>
-                  {plannedLeaveSpend > familyLeaveBudget && (
+                <div className={LABEL_CLS}>Leave Spend</div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="text-[11px] text-sand/40">Paid leave days</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={plannedLeaveSpend ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setPlannedLeaveSpend(value === '' ? null : Number(value))
+                      }}
+                      className="w-full rounded-xl border border-l3 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-l3 bg-ink px-3 py-2 text-sm text-sand/70">
+                    <input
+                      type="checkbox"
+                      checked={useUnpaidLeave}
+                      onChange={(e) => setUseUnpaidLeave(e.target.checked)}
+                      className="h-4 w-4 rounded border-l3 accent-primary focus:ring-primary/40"
+                    />
+                    Include unpaid leave
+                  </label>
+                  <label className={`space-y-1 ${useUnpaidLeave ? '' : 'opacity-40'}`}>
+                    <span className="text-[11px] text-sand/40">Unpaid leave days</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={unpaidLeaveDays}
+                      disabled={!useUnpaidLeave}
+                      onChange={(e) => setUnpaidLeaveDays(toNonNegativeNumber(e.target.value))}
+                      className="w-full rounded-xl border border-l3 bg-ink px-3 py-2 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed"
+                    />
+                  </label>
+                  <div className="rounded-xl border border-l3 bg-ink px-3 py-2 text-xs text-sand/40">
+                    <div>Paid available: <span className="text-sand/70">{familyLeaveBudget} days</span></div>
+                    <div>Total capacity: <span className="text-sand/70">{totalLeaveBudget} days</span></div>
+                  </div>
+                  {paidLeaveBudget > familyLeaveBudget && (
                     <span className="rounded-md border border-blood/30 bg-blood/10 px-2 py-0.5 text-xs text-blood">
-                      Over budget
+                      Paid leave over budget
                     </span>
                   )}
                 </div>
                 <p className="mt-2 text-[11px] text-sand/40">
-                  Model spending fewer or more days than your current balance.
+                  Paid leave is used first. Unpaid leave adds extra workdays the planner can include.
                 </p>
               </div>
 
@@ -802,24 +899,108 @@ const App = () => {
             </div>
 
             {/* ─ Results ─ */}
-            <div className="space-y-5">
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                <div className={`${PANEL} xl:col-span-2`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className={LABEL_CLS}>Top Options</div>
+                    {topWindows.length ? (
+                      <span className="font-mono text-[10px] text-sand/35">{topWindows.length} found</span>
+                    ) : null}
+                  </div>
+                  {topWindows.length ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                      {topWindows.map((win, idx) => (
+                        <button
+                          type="button"
+                          key={`${win.start}-${win.end}`}
+                          onClick={() => {
+                            setSelectedIndex(idx)
+                            setResult(win)
+                          }}
+                          className={`rounded-xl border px-3 py-3 text-left transition-colors ${
+                            idx === selectedIndex ? PILL_ACTIVE : PILL_IDLE
+                          }`}
+                        >
+                          <div className="text-sm font-semibold">
+                            Option {idx + 1} <span className={idx === selectedIndex ? 'text-primary' : ''}>{win.length}d</span>
+                          </div>
+                          <div className="mt-1 font-mono text-[10px] leading-relaxed text-sand/50">
+                            {win.windowDates[0]} to {win.windowDates.at(-1)}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-sand/45">Run the planner to compare windows here.</p>
+                  )}
+                </div>
+
+                <div className={PANEL}>
+                  <div className={LABEL_CLS}>Data</div>
+                  <ul className="mt-3 space-y-2 text-sm">
+                    {[
+                      ['Region', countryInfo.subdivisions.length ? subdivision : countryInfo.name],
+                      ['Loaded', `${holidays.length} rows`],
+                      ['Members', String(members.length)],
+                    ].map(([k, v]) => (
+                      <li key={k} className="flex items-center justify-between gap-3">
+                        <span className="text-sand/40">{k}</span>
+                        <span className="truncate font-mono text-xs text-sand/70">{v}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className={PANEL}>
+                  <div className={LABEL_CLS}>Share</div>
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className={`mt-3 w-full rounded-xl border py-3 text-xs font-medium uppercase tracking-[0.18em] transition-colors ${
+                      copied ? 'border-primary/50 bg-primary/10 text-primary' : PILL_IDLE
+                    }`}
+                  >
+                    {copied ? 'Copied' : 'Copy Link'}
+                  </button>
+                </div>
+              </div>
+
+            <div className="grid gap-5 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:grid-cols-2">
 
               {/* Optimal window */}
-              <div className={`${CARD} p-6`}>
+              <div className={`${CARD} p-5 sm:p-6 lg:col-span-2`}>
                 <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
                   Optimal Window
                 </h3>
                 {result ? (
-                  <div className="mt-5 space-y-4">
-                    <div className="font-display text-5xl font-semibold text-primary">
-                      {result.length}
-                      <span className="ml-2 text-2xl font-medium text-primary/70">days off</span>
+                  <div className="mt-5 grid gap-4 xl:grid-cols-[0.72fr_1.28fr]">
+                    <div className="flex min-h-48 flex-col justify-between rounded-2xl border border-primary/20 bg-primary/[0.07] p-5">
+                      <div className={LABEL_CLS}>Best break</div>
+                      <div className="font-display text-6xl font-semibold leading-none text-primary sm:text-7xl">
+                        {result.length}
+                        <span className="ml-2 align-baseline text-2xl font-medium text-primary/70">days</span>
+                      </div>
+                      {result.length > 0 ? (
+                        <div className="font-mono text-xs text-sand/70">
+                          {result.windowDates[0]} to {result.windowDates.at(-1)}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-sand/50">No valid window found.</div>
+                      )}
                     </div>
 
                     <div className={`${PANEL} space-y-2 text-sm`}>
                       <div className="flex items-center justify-between">
                         <span className="text-sand/50">Leave used (per person)</span>
-                        <span className="font-medium text-sand">{result.leaveUsed} / {plannedLeaveSpend ?? familyLeaveBudget}</span>
+                        <span className="font-medium text-sand">{result.leaveUsed} / {totalLeaveBudget}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sand/50">Paid leave</span>
+                        <span className="font-medium text-sand">{leaveBreakdown.paidUsed} / {paidLeaveBudget}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sand/50">Unpaid leave</span>
+                        <span className="font-medium text-sand">{leaveBreakdown.unpaidUsed} / {unpaidLeaveBudget}</span>
                       </div>
                       {result.length > 0 ? (
                         <div className="flex items-center justify-between">
@@ -834,32 +1015,38 @@ const App = () => {
                       <div className="flex gap-4 pt-1 text-xs text-sand/50">
                         <span>Weekends: <span className="text-sand/70">{counts.weekends}</span></span>
                         <span>Holidays: <span className="text-sand/70">{counts.holidays}</span></span>
-                        <span>Leave: <span className="text-sand/70">{counts.leave}</span></span>
+                        <span>Paid: <span className="text-sand/70">{counts.leave - counts.unpaid}</span></span>
+                        <span>Unpaid: <span className="text-sand/70">{counts.unpaid}</span></span>
                       </div>
                     </div>
 
-                    <div className={PANEL}>
+                    <div className={`${PANEL} xl:col-span-2`}>
                       <div className={`${LABEL_CLS} mb-2`}>Leave dates</div>
                       <p className="font-mono text-[11px] leading-relaxed text-sand/60">
                         {result.leaveDates.length ? result.leaveDates.join(', ') : 'No leave days required'}
                       </p>
+                      {leaveBreakdown.unpaidDates.length ? (
+                        <p className="mt-2 font-mono text-[11px] leading-relaxed text-blood/80">
+                          Unpaid: {leaveBreakdown.unpaidDates.join(', ')}
+                        </p>
+                      ) : null}
                     </div>
 
-                    <div className={PANEL}>
+                    <div className={`${PANEL} xl:col-span-2`}>
                       <div className={`${LABEL_CLS} mb-3`}>Per-member plan</div>
                       <div className="space-y-2">
                         {perMemberPlan.map((m) => (
                           <div key={m.id} className="flex items-center justify-between text-sm">
                             <span className="text-sand/70">{m.name}</span>
                             <span className={`font-mono text-xs ${m.remaining < 0 ? 'text-blood' : 'text-sand/80'}`}>
-                              {m.used} used · {m.remaining} left
+                              {m.used} paid / {m.unpaid} unpaid / {m.remaining} left
                             </span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="flex flex-wrap gap-2 pt-1 xl:col-span-2">
                       <button
                         type="button"
                         disabled={!canExport}
@@ -884,7 +1071,7 @@ const App = () => {
               </div>
 
               {/* Tradeoff curve */}
-              <div className={`${CARD} p-6`}>
+              <div className={`${CARD} p-5 sm:p-6`}>
                 <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
                   Leave Tradeoff Curve
                 </h3>
@@ -923,7 +1110,7 @@ const App = () => {
                         type="button"
                         key={s.leave}
                         onClick={() => {
-                          setPlannedLeaveSpend(s.leave)
+                          applySuggestedLeaveSpend(s.leave)
                           handleCompute(0, s.leave)
                         }}
                         className={`rounded-lg border px-3 py-1 text-xs transition-colors ${PILL_IDLE}`}
@@ -936,7 +1123,7 @@ const App = () => {
               </div>
 
               {/* Top options */}
-              <div className={`${CARD} p-6`}>
+              <div className={`${CARD} hidden p-6`}>
                 <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
                   Top Options
                 </h3>
@@ -969,7 +1156,7 @@ const App = () => {
               </div>
 
               {/* Multiple best windows (expandable) */}
-              <details className={`${CARD} p-6`}>
+              <details className={`${CARD} p-5 sm:p-6`}>
                 <summary className="flex cursor-pointer list-none items-center justify-between">
                   <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
                     Multiple Best Windows
@@ -989,7 +1176,7 @@ const App = () => {
                               key={`${s.leave}-${win.start}-${idx}`}
                               type="button"
                               onClick={() => {
-                                setPlannedLeaveSpend(s.leave)
+                                applySuggestedLeaveSpend(s.leave)
                                 setSelectedIndex(0)
                                 setResult(win)
                               }}
@@ -1008,7 +1195,7 @@ const App = () => {
               </details>
 
               {/* Data status + share */}
-              <div className={`${CARD} p-6`}>
+              <div className={`${CARD} hidden p-6`}>
                 <h3 className="font-display text-xl font-semibold uppercase tracking-wide text-sand">
                   Data Status
                 </h3>
@@ -1050,7 +1237,8 @@ const App = () => {
               <div className="flex flex-wrap gap-2">
                 {[
                   { label: 'Holiday', color: 'border-sky/40 bg-sky/10 text-sky' },
-                  { label: 'Leave', color: 'border-primary/60 bg-primary/20 text-primary' },
+                  { label: 'Paid leave', color: 'border-primary/60 bg-primary/20 text-primary' },
+                  { label: 'Unpaid leave', color: 'border-blood/40 bg-blood/10 text-blood' },
                   { label: 'Weekend', color: 'border-l3 bg-l2 text-sand/60' },
                   { label: 'Blackout', color: 'border-blood/40 bg-blood/10 text-blood' },
                 ].map(({ label, color }) => (
@@ -1099,8 +1287,9 @@ const App = () => {
               ) : (
                 <div className="space-y-4">
                   {members.map((member) => {
-                    const balance = Number(member.leaveDays) || 0
-                    const used = result?.leaveUsed ?? 0
+                    const balance = toNonNegativeNumber(member.leaveDays)
+                    const used = leaveBreakdown.paidUsed
+                    const unpaid = leaveBreakdown.unpaidUsed
                     const remaining = balance - used
                     return (
                       <details
@@ -1110,7 +1299,7 @@ const App = () => {
                         <summary className="flex cursor-pointer list-none items-center justify-between text-sm">
                           <span className="font-medium text-sand/80">{member.name}</span>
                           <span className={`font-mono text-xs ${remaining < 0 ? 'text-blood' : 'text-sand/50'}`}>
-                            {used} used · {remaining} left
+                            {used} paid / {unpaid} unpaid / {remaining} left
                           </span>
                         </summary>
                         <div className="mt-4">
@@ -1145,12 +1334,14 @@ const App = () => {
                 Window: {result.windowDates[0]} → {result.windowDates.at(-1)} ({result.length} days off)
               </p>
               <p>Leave used per person: {result.leaveUsed}</p>
+              <p>Paid leave: {leaveBreakdown.paidUsed}</p>
+              <p>Unpaid leave: {leaveBreakdown.unpaidUsed}</p>
               <p>Leave dates: {result.leaveDates.join(', ') || 'None'}</p>
               <h2>Per-member balances</h2>
               <ul>
                 {perMemberPlan.map((m) => (
                   <li key={m.id}>
-                    {m.name}: {m.used} used · {m.remaining} left
+                    {m.name}: {m.used} paid / {m.unpaid} unpaid / {m.remaining} left
                   </li>
                 ))}
               </ul>

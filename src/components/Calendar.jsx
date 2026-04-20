@@ -19,6 +19,7 @@ const DayCell = ({ date, meta, filterMode }) => {
   if (info.isWeekend) { bg = 'bg-l2 border border-l3'; text = 'text-sand/40' }
   if (info.isHoliday) { bg = 'bg-sky/10 border border-sky/30'; text = 'text-sky' }
   if (info.isLeave)   { bg = 'bg-primary/20 border border-primary/50'; text = 'text-primary font-semibold' }
+  if (info.isUnpaidLeave) { bg = 'bg-blood/10 border border-blood/40'; text = 'text-blood font-semibold' }
   if (info.isBlocked) { bg = 'bg-blood/10 border border-blood/30'; text = 'text-blood' }
   if (info.isWindow)  ring = 'ring-1 ring-primary/30 ring-offset-1 ring-offset-ink'
 
@@ -26,7 +27,7 @@ const DayCell = ({ date, meta, filterMode }) => {
 
   const tooltip = [
     info.label || null,
-    info.isLeave ? 'Leave' : null,
+    info.isUnpaidLeave ? 'Unpaid leave' : info.isLeave ? 'Paid leave' : null,
     info.isHoliday ? 'Holiday' : null,
     info.isWeekend ? 'Weekend' : null,
     info.isBlocked ? 'Blackout' : null,
