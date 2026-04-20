@@ -8,7 +8,7 @@ const DayCell = ({ date, meta, filterMode }) => {
   const iso = toISODateUTC(date)
   const info = meta[iso] || {}
 
-  if (filterMode === 'off' && !info.isWeekend && !info.isHoliday && !info.isLeave && !info.isBlocked) {
+  if (filterMode === 'off' && !info.isWeekend && !info.isHoliday && !info.isLeave && !info.isUnpaidLeave && !info.isBlocked) {
     return <div className="h-11 rounded-lg bg-l2/40" />
   }
 
@@ -50,7 +50,11 @@ const DayCell = ({ date, meta, filterMode }) => {
   )
 }
 
-const Calendar = ({ year, dayMeta, filterMode = 'all', idPrefix = 'main' }) => {
+const Calendar = ({ year, dayMeta, filterMode = 'all', idPrefix = 'main', visibleMonths = null }) => {
+  const months = visibleMonths?.length
+    ? visibleMonths
+    : Array.from({ length: 12 }, (_, idx) => ({ year, month: idx }))
+
   const handleJump = (e) => {
     const target = document.getElementById(`${idPrefix}-month-${e.target.value}`)
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -58,28 +62,30 @@ const Calendar = ({ year, dayMeta, filterMode = 'all', idPrefix = 'main' }) => {
 
   return (
     <div className="space-y-10">
+      {months.length > 1 && (
       <div className="flex items-center justify-between rounded-xl border border-l3 bg-l2 px-4 py-3">
         <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-sand/40">Jump to month</div>
         <select
-          className="rounded-lg border border-l3 bg-ink px-3 py-1.5 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="rounded-lg border border-l3 bg-l1 px-3 py-1.5 text-sm text-sand focus:outline-none focus:ring-2 focus:ring-primary/40"
           onChange={handleJump}
-          defaultValue="0"
+          defaultValue={`${months[0].year}-${months[0].month}`}
         >
-          {Array.from({ length: 12 }).map((_, idx) => (
-            <option key={idx} value={idx}>
-              {monthLabel(year, idx)}
+          {months.map(({ year: monthYear, month }) => (
+            <option key={`${monthYear}-${month}`} value={`${monthYear}-${month}`}>
+              {monthLabel(monthYear, month)}
             </option>
           ))}
         </select>
       </div>
+      )}
 
-      {Array.from({ length: 12 }).map((_, idx) => (
-        <section key={idx} id={`${idPrefix}-month-${idx}`} className="scroll-mt-24 space-y-3">
+      {months.map(({ year: monthYear, month }) => (
+        <section key={`${monthYear}-${month}`} id={`${idPrefix}-month-${monthYear}-${month}`} className="scroll-mt-24 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-sand">
-              {monthLabel(year, idx)}
+              {monthLabel(monthYear, month)}
             </h3>
-            <div className="font-mono text-[10px] text-sand/30">{year}</div>
+            <div className="font-mono text-[10px] text-sand/30">{monthYear}</div>
           </div>
           <div className="grid grid-cols-7 gap-1.5">
             {WEEK_DAYS.map((day) => (
@@ -87,8 +93,8 @@ const Calendar = ({ year, dayMeta, filterMode = 'all', idPrefix = 'main' }) => {
                 {day}
               </div>
             ))}
-            {getMonthMatrix(year, idx).map((date, cellIdx) => (
-              <DayCell key={`${idx}-${cellIdx}`} date={date} meta={dayMeta} filterMode={filterMode} />
+            {getMonthMatrix(monthYear, month).map((date, cellIdx) => (
+              <DayCell key={`${monthYear}-${month}-${cellIdx}`} date={date} meta={dayMeta} filterMode={filterMode} />
             ))}
           </div>
         </section>

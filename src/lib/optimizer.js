@@ -8,7 +8,8 @@ export const buildDayMap = (year, holidays, weekendDays) => {
     }
   })
 
-  return getYearDates(year).map((date) => {
+  const years = Array.isArray(year) ? year : [year]
+  return years.flatMap((y) => getYearDates(y)).map((date) => {
     const iso = toISODateUTC(date)
     const holiday = holidayMap.get(iso)
     const weekend = isWeekendUTC(date, weekendDays)
