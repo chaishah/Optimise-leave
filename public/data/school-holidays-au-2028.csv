@@ -1,0 +1,26 @@
+start,end,country,subdivision,name,type
+2028-01-01,2028-01-28,au,NSW,Summer school holidays,school
+2028-04-10,2028-04-21,au,NSW,Autumn school holidays,school
+2028-07-10,2028-07-21,au,NSW,Winter school holidays,school
+2028-10-03,2028-10-13,au,NSW,Spring school holidays,school
+2028-12-22,2028-12-31,au,NSW,Summer school holidays,school
+2028-01-01,2028-01-26,au,VIC,Summer school holidays,school
+2028-04-01,2028-04-17,au,VIC,Autumn school holidays,school
+2028-07-01,2028-07-16,au,VIC,Winter school holidays,school
+2028-09-23,2028-10-08,au,VIC,Spring school holidays,school
+2028-12-22,2028-12-31,au,VIC,Summer school holidays,school
+2028-01-01,2028-01-23,au,QLD,Summer school holidays,school
+2028-04-01,2028-04-17,au,QLD,Autumn school holidays,school
+2028-06-24,2028-07-09,au,QLD,Winter school holidays,school
+2028-09-16,2028-10-02,au,QLD,Spring school holidays,school
+2028-12-09,2028-12-31,au,QLD,Summer school holidays,school
+2028-01-01,2028-01-30,au,SA,Summer school holidays,school
+2028-04-14,2028-04-30,au,SA,Autumn school holidays,school
+2028-07-08,2028-07-23,au,SA,Winter school holidays,school
+2028-09-30,2028-10-15,au,SA,Spring school holidays,school
+2028-12-16,2028-12-31,au,SA,Summer school holidays,school
+2028-01-01,2028-02-01,au,WA,Summer school holidays,school
+2028-04-08,2028-04-23,au,WA,Autumn school holidays,school
+2028-07-01,2028-07-16,au,WA,Winter school holidays,school
+2028-09-23,2028-10-08,au,WA,Spring school holidays,school
+2028-12-15,2028-12-31,au,WA,Summer school holidays,school

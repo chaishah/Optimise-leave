@@ -1,0 +1,21 @@
+start,end,country,subdivision,name,type
+2026-04-03,2026-04-21,au,NSW,Autumn school holidays,school
+2026-07-04,2026-07-20,au,NSW,Winter school holidays,school
+2026-09-26,2026-10-12,au,NSW,Spring school holidays,school
+2026-12-18,2026-12-31,au,NSW,Summer school holidays,school
+2026-04-03,2026-04-19,au,VIC,Autumn school holidays,school
+2026-06-27,2026-07-12,au,VIC,Winter school holidays,school
+2026-09-19,2026-10-04,au,VIC,Spring school holidays,school
+2026-12-19,2026-12-31,au,VIC,Summer school holidays,school
+2026-04-03,2026-04-19,au,QLD,Autumn school holidays,school
+2026-06-27,2026-07-12,au,QLD,Winter school holidays,school
+2026-09-19,2026-10-05,au,QLD,Spring school holidays,school
+2026-12-12,2026-12-31,au,QLD,Summer school holidays,school
+2026-04-11,2026-04-26,au,SA,Autumn school holidays,school
+2026-07-04,2026-07-19,au,SA,Winter school holidays,school
+2026-09-26,2026-10-11,au,SA,Spring school holidays,school
+2026-12-12,2026-12-31,au,SA,Summer school holidays,school
+2026-04-03,2026-04-19,au,WA,Autumn school holidays,school
+2026-07-04,2026-07-19,au,WA,Winter school holidays,school
+2026-09-26,2026-10-11,au,WA,Spring school holidays,school
+2026-12-18,2026-12-31,au,WA,Summer school holidays,school
