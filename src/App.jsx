@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Calendar from './components/Calendar.jsx'
-import { loadHolidays } from './lib/holidayLoader.js'
+import { loadHolidays, loadSchoolHolidays } from './lib/holidayLoader.js'
 import { buildDayMap, findOptimalWindow, findTopWindows } from './lib/optimizer.js'
 
 const COUNTRIES = [
@@ -96,6 +96,10 @@ const App = () => {
   const [plannedLeaveSpend, setPlannedLeaveSpend] = useState(null)
   const [useUnpaidLeave, setUseUnpaidLeave] = useState(false)
   const [unpaidLeaveDays, setUnpaidLeaveDays] = useState(0)
+  const [useBudgetSafePaidLeave, setUseBudgetSafePaidLeave] = useState(false)
+  const [showSchoolHolidays, setShowSchoolHolidays] = useState(false)
+  const [preferSchoolHolidays, setPreferSchoolHolidays] = useState(false)
+  const [schoolHolidays, setSchoolHolidays] = useState([])
   const [view, setView] = useState('planner')
   const [calendarViewMode, setCalendarViewMode] = useState('combined')
 
@@ -115,19 +119,28 @@ const App = () => {
     return useUnpaidLeave ? toNonNegativeNumber(unpaidLeaveDays) : 0
   }, [unpaidLeaveDays, useUnpaidLeave])
 
-  const totalLeaveBudget = paidLeaveBudget + unpaidLeaveBudget
+  const paidLeaveOverBudget = Math.max(0, paidLeaveBudget - familyLeaveBudget)
+  const effectivePaidLeaveBudget = useBudgetSafePaidLeave
+    ? Math.min(paidLeaveBudget, familyLeaveBudget)
+    : paidLeaveBudget
+  const reallocatedUnpaidBudget = useBudgetSafePaidLeave && useUnpaidLeave
+    ? paidLeaveOverBudget
+    : 0
+  const effectiveUnpaidLeaveBudget = unpaidLeaveBudget + reallocatedUnpaidBudget
+  const totalLeaveBudget = effectivePaidLeaveBudget + effectiveUnpaidLeaveBudget
   const plannerYears = useMemo(() => [year, year + 1], [year])
+  const schoolOverlayEnabled = country === 'au' && (showSchoolHolidays || preferSchoolHolidays)
 
   const leaveBreakdown = useMemo(() => {
     const leaveDates = result?.leaveDates || []
-    const paidCount = Math.min(leaveDates.length, paidLeaveBudget)
+    const paidCount = Math.min(leaveDates.length, effectivePaidLeaveBudget)
     return {
       paidDates: leaveDates.slice(0, paidCount),
       unpaidDates: leaveDates.slice(paidCount),
       paidUsed: paidCount,
       unpaidUsed: Math.max(0, leaveDates.length - paidCount),
     }
-  }, [paidLeaveBudget, result])
+  }, [effectivePaidLeaveBudget, result])
 
   useEffect(() => {
     if (!countryInfo) return
@@ -147,32 +160,58 @@ const App = () => {
     const leaveSet = new Set(result?.leaveDates || [])
     const unpaidLeaveSet = new Set(leaveBreakdown.unpaidDates)
     const windowSet = new Set(result?.windowDates || [])
+    const schoolHolidayMap = new Map()
+    if (schoolOverlayEnabled) {
+      schoolHolidays.forEach((holiday) => {
+        schoolHolidayMap.set(holiday.date, holiday)
+      })
+    }
     const meta = {}
     days.forEach((day) => {
+      const schoolHoliday = schoolHolidayMap.get(day.iso)
       meta[day.iso] = {
         isWeekend: day.weekend,
         isHoliday: Boolean(day.holiday),
+        isSchoolHoliday: Boolean(schoolHoliday),
         isLeave: leaveSet.has(day.iso),
         isUnpaidLeave: unpaidLeaveSet.has(day.iso),
         isWindow: windowSet.has(day.iso),
         isBlocked: blackoutSet.has(day.iso),
         label: day.holiday?.name || '',
+        schoolLabel: schoolHoliday?.name || '',
       }
     })
     return meta
-  }, [plannerYears, holidays, result, weekendDays, blackoutDates, leaveBreakdown])
+  }, [
+    plannerYears,
+    holidays,
+    result,
+    weekendDays,
+    blackoutDates,
+    leaveBreakdown,
+    schoolHolidays,
+    schoolOverlayEnabled,
+  ])
 
   const handleCompute = async (preferredIndex = 0, spendOverride) => {
     setIsLoading(true)
     setStatus('Loading holidays…')
-    const list = (
-      await Promise.all(
+    const [list, schoolList] = await Promise.all([
+      Promise.all(
         plannerYears.map((plannerYear) =>
           loadHolidays({ country, year: plannerYear, subdivision })
         )
-      )
-    ).flat()
+      ).then((rows) => rows.flat()),
+      schoolOverlayEnabled
+        ? Promise.all(
+            plannerYears.map((plannerYear) =>
+              loadSchoolHolidays({ country, year: plannerYear, subdivision })
+            )
+          ).then((rows) => rows.flat())
+        : Promise.resolve([]),
+    ])
     setHolidays(list)
+    setSchoolHolidays(schoolList)
 
     if (list.length === 0) {
       setStatus('No holidays loaded. Populate the CSV to unlock accurate results.')
@@ -188,16 +227,35 @@ const App = () => {
     const maxBudget = familyLeaveBudget
     const leaveBudget =
       typeof spendOverride === 'number' ? toNonNegativeNumber(spendOverride) : totalLeaveBudget
-    const windows = findTopWindows(filteredWithBlocks, Number(leaveBudget), includeDate, 5)
+    const schoolHolidaySet = new Set(schoolList.map((holiday) => holiday.date))
+    const getWindows = (leaveDays, limit = 5) => {
+      const candidateLimit = preferSchoolHolidays && schoolHolidaySet.size ? 200 : limit
+      const candidates = findTopWindows(
+        filteredWithBlocks,
+        Number(leaveDays),
+        includeDate,
+        candidateLimit
+      )
+      if (!preferSchoolHolidays || !schoolHolidaySet.size) return candidates.slice(0, limit)
+      return candidates
+        .filter((win) => win.windowDates.some((date) => schoolHolidaySet.has(date)))
+        .slice(0, limit)
+    }
+    const windows = getWindows(leaveBudget, 5)
     setTopWindows(windows)
     const nextIndex = windows[preferredIndex] ? preferredIndex : 0
     const selected = windows[nextIndex] || windows[0] || null
     setSelectedIndex(nextIndex)
-    setResult(selected || findOptimalWindow(filteredWithBlocks, Number(leaveBudget), includeDate))
+    setResult(
+      selected ||
+        (preferSchoolHolidays && schoolHolidaySet.size
+          ? null
+          : findOptimalWindow(filteredWithBlocks, Number(leaveBudget), includeDate))
+    )
     const curve = []
     const maxCurve = Math.max(maxBudget, leaveBudget, 1)
     for (let i = 0; i <= maxCurve; i += 1) {
-      const best = findTopWindows(filteredWithBlocks, i, includeDate, 1)[0]
+      const best = getWindows(i, 1)[0]
       curve.push({ leave: i, daysOff: best ? best.length : 0 })
     }
     setCurvePoints(curve)
@@ -205,10 +263,15 @@ const App = () => {
     setCurveSuggestions(suggestions)
     const suggestionMap = {}
     suggestions.forEach((s) => {
-      suggestionMap[s.leave] = findTopWindows(filteredWithBlocks, s.leave, includeDate, 3)
+      suggestionMap[s.leave] = getWindows(s.leave, 3)
     })
     setSuggestionWindows(suggestionMap)
-    setStatus(`Done — ${windows[0]?.length ?? 0} days off found.`)
+    if (preferSchoolHolidays && schoolHolidaySet.size && !windows.length) {
+      setStatus('No school-holiday-aligned window found with these settings.')
+    } else {
+      const schoolNote = schoolOverlayEnabled ? ` School rows: ${schoolList.length}.` : ''
+      setStatus(`Done - ${windows[0]?.length ?? 0} days off found.${schoolNote}`)
+    }
     setIsLoading(false)
   }
 
@@ -223,21 +286,23 @@ const App = () => {
 
   const counts = useMemo(() => {
     if (!result || result.length === 0) {
-      return { weekends: 0, holidays: 0, leave: 0, unpaid: 0 }
+      return { weekends: 0, holidays: 0, school: 0, leave: 0, unpaid: 0 }
     }
     const windowSet = new Set(result.windowDates)
     let weekends = 0
     let holidaysCount = 0
+    let school = 0
     let leave = 0
     let unpaid = 0
     Object.entries(dayMeta).forEach(([iso, meta]) => {
       if (!windowSet.has(iso)) return
       if (meta.isWeekend) weekends += 1
       if (meta.isHoliday) holidaysCount += 1
+      if (meta.isSchoolHoliday) school += 1
       if (meta.isLeave) leave += 1
       if (meta.isUnpaidLeave) unpaid += 1
     })
-    return { weekends, holidays: holidaysCount, leave, unpaid }
+    return { weekends, holidays: holidaysCount, school, leave, unpaid }
   }, [dayMeta, result])
 
   const canExport = Boolean(result && result.length > 0)
@@ -353,6 +418,9 @@ const App = () => {
     if (!Number.isNaN(parsedSpend) && parsedSpend >= 0) setPlannedLeaveSpend(parsedSpend)
     if (parsedUnpaid === '1') setUseUnpaidLeave(true)
     if (!Number.isNaN(parsedUnpaidDays) && parsedUnpaidDays >= 0) setUnpaidLeaveDays(parsedUnpaidDays)
+    if (params.get('safebudget') === '1') setUseBudgetSafePaidLeave(true)
+    if (params.get('school') === '1') setShowSchoolHolidays(true)
+    if (params.get('schoolalign') === '1') setPreferSchoolHolidays(true)
     const parsedCalView = params.get('calview')
     if (parsedCalView === 'combined' || parsedCalView === 'per-member') {
       setCalendarViewMode(parsedCalView)
@@ -397,6 +465,9 @@ const App = () => {
       params.set('unpaid', '1')
       params.set('unpaidDays', String(unpaidLeaveBudget))
     }
+    if (useBudgetSafePaidLeave) params.set('safebudget', '1')
+    if (showSchoolHolidays) params.set('school', '1')
+    if (preferSchoolHolidays) params.set('schoolalign', '1')
     if (calendarViewMode) params.set('calview', calendarViewMode)
     const basePath = view === 'guide' ? '/guide' : '/'
     const newUrl = `${basePath}?${params.toString()}`
@@ -415,6 +486,9 @@ const App = () => {
     plannedLeaveSpend,
     useUnpaidLeave,
     unpaidLeaveBudget,
+    useBudgetSafePaidLeave,
+    showSchoolHolidays,
+    preferSchoolHolidays,
     view,
     calendarViewMode,
   ])
@@ -453,6 +527,10 @@ const App = () => {
     setPlannedLeaveSpend(null)
     setUseUnpaidLeave(false)
     setUnpaidLeaveDays(0)
+    setUseBudgetSafePaidLeave(false)
+    setShowSchoolHolidays(false)
+    setPreferSchoolHolidays(false)
+    setSchoolHolidays([])
     setView('planner')
     setCalendarViewMode('combined')
     window.history.pushState(null, '', '/')
@@ -839,6 +917,15 @@ const App = () => {
                     />
                     Include unpaid leave
                   </label>
+                  <label className="flex items-center gap-3 rounded-xl border border-l3 bg-l1 px-3 py-2 text-sm text-sand/70">
+                    <input
+                      type="checkbox"
+                      checked={useBudgetSafePaidLeave}
+                      onChange={(e) => setUseBudgetSafePaidLeave(e.target.checked)}
+                      className="h-4 w-4 rounded border-l3 accent-primary focus:ring-primary/40"
+                    />
+                    Budget-safe paid leave
+                  </label>
                   <label className={`space-y-1 ${useUnpaidLeave ? '' : 'opacity-40'}`}>
                     <span className="text-[11px] text-sand/40">Unpaid leave days</span>
                     <input
@@ -852,16 +939,25 @@ const App = () => {
                   </label>
                   <div className="rounded-xl border border-l3 bg-l1 px-3 py-2 text-xs text-sand/40">
                     <div>Paid available: <span className="text-sand/70">{familyLeaveBudget} days</span></div>
+                    <div>Paid counted: <span className="text-sand/70">{effectivePaidLeaveBudget} days</span></div>
                     <div>Total capacity: <span className="text-sand/70">{totalLeaveBudget} days</span></div>
+                    {reallocatedUnpaidBudget > 0 && (
+                      <div>Moved to unpaid: <span className="text-sand/70">{reallocatedUnpaidBudget} days</span></div>
+                    )}
                   </div>
-                  {paidLeaveBudget > familyLeaveBudget && (
+                  {paidLeaveBudget > familyLeaveBudget && !useBudgetSafePaidLeave && (
                     <span className="rounded-md border border-blood/30 bg-blood/10 px-2 py-0.5 text-xs text-blood">
                       Paid leave over budget
                     </span>
                   )}
+                  {paidLeaveBudget > familyLeaveBudget && useBudgetSafePaidLeave && !useUnpaidLeave && (
+                    <span className="rounded-md border border-moss/30 bg-moss/10 px-2 py-0.5 text-xs text-moss">
+                      Extra paid leave ignored
+                    </span>
+                  )}
                 </div>
                 <p className="mt-2 text-[11px] text-sand/40">
-                  Paid leave is used first. Unpaid leave adds extra workdays the planner can include.
+                  Paid leave is used first. Budget-safe mode caps paid days at the lowest family balance.
                 </p>
               </div>
 
@@ -904,6 +1000,42 @@ const App = () => {
                   >
                     Add
                   </button>
+                </div>
+              </details>
+
+              {/* School holidays */}
+              <details className={`mt-4 ${PANEL}`}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <span className={LABEL_CLS}>School Holidays</span>
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-sand/40">Expand</span>
+                </summary>
+                <div className="mt-4 space-y-3">
+                  <label className={`flex items-center gap-3 rounded-xl border border-l3 bg-l1 px-3 py-2 text-sm text-sand/70 ${country === 'au' ? '' : 'opacity-40'}`}>
+                    <input
+                      type="checkbox"
+                      checked={showSchoolHolidays}
+                      disabled={country !== 'au'}
+                      onChange={(e) => setShowSchoolHolidays(e.target.checked)}
+                      className="h-4 w-4 rounded border-l3 accent-primary focus:ring-primary/40 disabled:cursor-not-allowed"
+                    />
+                    Show Australian school holidays
+                  </label>
+                  <label className={`flex items-center gap-3 rounded-xl border border-l3 bg-l1 px-3 py-2 text-sm text-sand/70 ${country === 'au' ? '' : 'opacity-40'}`}>
+                    <input
+                      type="checkbox"
+                      checked={preferSchoolHolidays}
+                      disabled={country !== 'au'}
+                      onChange={(e) => {
+                        setPreferSchoolHolidays(e.target.checked)
+                        if (e.target.checked) setShowSchoolHolidays(true)
+                      }}
+                      className="h-4 w-4 rounded border-l3 accent-primary focus:ring-primary/40 disabled:cursor-not-allowed"
+                    />
+                    Prefer windows that overlap school holidays
+                  </label>
+                  <p className="text-[11px] text-sand/40">
+                    Uses state school holiday ranges where local data is available.
+                  </p>
                 </div>
               </details>
 
@@ -960,6 +1092,7 @@ const App = () => {
                     {[
                       ['Region', countryInfo.subdivisions.length ? subdivision : countryInfo.name],
                       ['Loaded', `${holidays.length} rows`],
+                      ['School rows', schoolOverlayEnabled ? String(schoolHolidays.length) : 'Off'],
                       ['Members', String(members.length)],
                     ].map(([k, v]) => (
                       <li key={k} className="flex items-center justify-between gap-3">
@@ -1034,6 +1167,9 @@ const App = () => {
                       <div className="flex gap-4 pt-1 text-xs text-sand/50">
                         <span>Weekends: <span className="text-sand/70">{counts.weekends}</span></span>
                         <span>Holidays: <span className="text-sand/70">{counts.holidays}</span></span>
+                        {schoolOverlayEnabled && (
+                          <span>School: <span className="text-sand/70">{counts.school}</span></span>
+                        )}
                         <span>Paid: <span className="text-sand/70">{counts.leave - counts.unpaid}</span></span>
                         <span>Unpaid: <span className="text-sand/70">{counts.unpaid}</span></span>
                       </div>
@@ -1261,6 +1397,9 @@ const App = () => {
               <div className="flex flex-wrap gap-2">
                 {[
                   { label: 'Holiday', color: 'border-sky/40 bg-sky/10 text-sky' },
+                  ...(schoolOverlayEnabled
+                    ? [{ label: 'School break', color: 'border-moss/40 bg-moss/10 text-moss' }]
+                    : []),
                   { label: 'Paid leave', color: 'border-primary/60 bg-primary/20 text-primary' },
                   { label: 'Unpaid leave', color: 'border-blood/40 bg-blood/10 text-blood' },
                   { label: 'Weekend', color: 'border-l3 bg-l2 text-sand/60' },

@@ -8,7 +8,7 @@ const DayCell = ({ date, meta, filterMode }) => {
   const iso = toISODateUTC(date)
   const info = meta[iso] || {}
 
-  if (filterMode === 'off' && !info.isWeekend && !info.isHoliday && !info.isLeave && !info.isUnpaidLeave && !info.isBlocked) {
+  if (filterMode === 'off' && !info.isWeekend && !info.isHoliday && !info.isSchoolHoliday && !info.isLeave && !info.isUnpaidLeave && !info.isBlocked) {
     return <div className="h-11 rounded-lg bg-l2/40" />
   }
 
@@ -17,6 +17,7 @@ const DayCell = ({ date, meta, filterMode }) => {
   let ring = ''
 
   if (info.isWeekend) { bg = 'bg-l2 border border-l3'; text = 'text-sand/40' }
+  if (info.isSchoolHoliday) { bg = 'bg-moss/10 border border-moss/30'; text = 'text-moss' }
   if (info.isHoliday) { bg = 'bg-sky/10 border border-sky/30'; text = 'text-sky' }
   if (info.isLeave)   { bg = 'bg-primary/20 border border-primary/50'; text = 'text-primary font-semibold' }
   if (info.isUnpaidLeave) { bg = 'bg-blood/10 border border-blood/40'; text = 'text-blood font-semibold' }
@@ -24,11 +25,14 @@ const DayCell = ({ date, meta, filterMode }) => {
   if (info.isWindow)  ring = 'ring-1 ring-primary/30 ring-offset-1 ring-offset-ink'
 
   const opacity = filterMode === 'window' && !info.isWindow ? 'opacity-25' : ''
+  const displayLabel = info.label || info.schoolLabel
 
   const tooltip = [
     info.label || null,
+    info.schoolLabel || null,
     info.isUnpaidLeave ? 'Unpaid leave' : info.isLeave ? 'Paid leave' : null,
     info.isHoliday ? 'Holiday' : null,
+    info.isSchoolHoliday ? 'School holiday' : null,
     info.isWeekend ? 'Weekend' : null,
     info.isBlocked ? 'Blackout' : null,
   ]
@@ -41,9 +45,9 @@ const DayCell = ({ date, meta, filterMode }) => {
       title={tooltip}
     >
       <span className="text-sm leading-none">{date.getUTCDate()}</span>
-      {info.label && (
+      {displayLabel && (
         <span className="mt-0.5 hidden max-w-[52px] truncate text-[9px] opacity-70 md:block">
-          {info.label}
+          {displayLabel}
         </span>
       )}
     </div>
