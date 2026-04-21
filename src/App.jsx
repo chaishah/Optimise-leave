@@ -47,9 +47,12 @@ const WEEKDAYS = [
 
 const DEFAULT_MEMBERS = [{ id: 1, name: 'You', leaveDays: 12 }]
 
-const getTodayISODate = () => {
+const getYearStartDate = (year) => `${year}-01-01`
+
+const getDefaultStartDate = (year) => {
   const today = new Date()
-  const year = today.getFullYear()
+  if (today.getFullYear() !== year) return getYearStartDate(year)
+
   const month = String(today.getMonth() + 1).padStart(2, '0')
   const day = String(today.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
@@ -77,7 +80,7 @@ const App = () => {
   const [result, setResult] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [status, setStatus] = useState('Ready when you are.')
-  const [startDate, setStartDate] = useState(() => getTodayISODate())
+  const [startDate, setStartDate] = useState(() => getDefaultStartDate(2026))
   const [mustInclude, setMustInclude] = useState('')
   const [weekendDays, setWeekendDays] = useState([6, 0])
   const [copied, setCopied] = useState(false)
@@ -435,7 +438,7 @@ const App = () => {
     setResult(null)
     setIsLoading(false)
     setStatus('Ready when you are.')
-    setStartDate(getTodayISODate())
+    setStartDate(getDefaultStartDate(2026))
     setMustInclude('')
     setWeekendDays([6, 0])
     setCopied(false)
@@ -652,7 +655,11 @@ const App = () => {
                   <span className={LABEL_CLS}>Year</span>
                   <select
                     value={year}
-                    onChange={(e) => { const y = Number(e.target.value); setYear(y); setStartDate(getTodayISODate()) }}
+                    onChange={(e) => {
+                      const y = Number(e.target.value)
+                      setYear(y)
+                      setStartDate(getDefaultStartDate(y))
+                    }}
                     className={INPUT_CLS}
                   >
                     {YEARS.map((y) => (
